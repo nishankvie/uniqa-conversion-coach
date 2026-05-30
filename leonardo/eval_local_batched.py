@@ -22,7 +22,8 @@ def main(argv=None) -> int:
     ap.add_argument("--base", required=True)
     ap.add_argument("--adapters", default="leonardo/out")
     ap.add_argument("--n", type=int, default=100)
-    ap.add_argument("--batch_size", type=int, default=48)
+    ap.add_argument("--batch_size", type=int, default=100)
+    ap.add_argument("--max_new_tokens", type=int, default=448)
     ap.add_argument("--seed", type=int, default=500)
     args = ap.parse_args(argv)
 
@@ -30,7 +31,8 @@ def main(argv=None) -> int:
     for persona in PERSONAS:
         adapter = str(Path(args.adapters) / persona)
         print(f"[{persona}] loading {adapter} ...", flush=True)
-        teacher = BatchedLocalTeacher(args.base, adapter, batch_size=args.batch_size)
+        teacher = BatchedLocalTeacher(args.base, adapter, batch_size=args.batch_size,
+                                      max_new_tokens=args.max_new_tokens)
         t0 = time.time()
         by_persona[persona] = teacher.generate_cohort(persona, args.n, seed=args.seed)
         dt = time.time() - t0
