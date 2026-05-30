@@ -18,7 +18,7 @@ echo "node=$(hostname) job=$SLURM_JOB_ID"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader || true
 
 cd "$HOME/zero-one"
-export PYTHONPATH="$HOME/zero-one/src"
+export PYTHONPATH="$HOME/zero-one:$HOME/zero-one/src"   # root → research/ + leonardo/ ; src → uniqa/
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 RUN="$HOME/.pixi/bin/pixi run --manifest-path $HOME/zero-one/pixi.toml"
 N="${N:-100}"; BS="${BS:-48}"

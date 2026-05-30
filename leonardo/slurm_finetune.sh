@@ -18,7 +18,7 @@ echo "node=$(hostname) gpus=${SLURM_GPUS_PER_TASK:-?} job=$SLURM_JOB_ID"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader || true
 
 cd "$HOME/zero-one"
-export PYTHONPATH="$HOME/zero-one/src"        # so `uniqa` + `research` import in eval_local.py
+export PYTHONPATH="$HOME/zero-one:$HOME/zero-one/src"   # root → research/+leonardo/ ; src → uniqa/
 export HF_HUB_OFFLINE=1                        # compute nodes have no internet; base pre-staged
 export TRANSFORMERS_OFFLINE=1
 RUN="$HOME/.pixi/bin/pixi run --manifest-path $HOME/zero-one/pixi.toml"   # deps: torch transformers peft trl datasets accelerate
