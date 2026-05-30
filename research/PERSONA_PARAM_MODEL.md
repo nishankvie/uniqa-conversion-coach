@@ -239,9 +239,12 @@ richly-reasoned sessions (subconscious `cant_grasp`/`too_much_effort`, exogenous
 intent-mismatch `dissatisfied`) and Judith/Peter land near their anchors, but we do **not** yet
 reliably hit all marginal targets. Two structural blockers + one architecture decision:
 
-1. **Structural (cheap, agreed): inject the computed S6 final price** (provisional + health
-   uplift) as a widget response so Franz faces the real jump. This is the #1 Franz blocker and
-   is target-free (it's widget mechanics we own).
+1. **~~Inject an S6 price jump~~ — INVALIDATED by CDP recon** (`research/findings/pricing_recon.md`).
+   The real online price = f(age, tariff) only; health/SV/gender do NOT change it and there is
+   NO online price-jump. Franz's S6 churn is therefore NOT a displayed price increase — reframe
+   it as health-form EFFORT + commitment + uncertainty about the offline-underwritten final
+   premium. Rename/repurpose the `final_price_sensitivity_s6` dial accordingly; `scope.premium`
+   now returns the real age-based number (no jump).
 2. **Variance: pool multi-seed** (`evals --seeds 3`, N ≥ 72/persona for Peter) before gating.
 3. **DECISION — pure vs hybrid:**
    - **(A) Pure consciousness** (current vision): keep the stay/leave decision in the LLM; add
@@ -256,7 +259,11 @@ reliably hit all marginal targets. Two structural blockers + one architecture de
 
 ## 7. Backlog (next hardening — agreed to track)
 
-- Inject computed S6 final-price uplift as a widget response (Franz). **[do next]**
+- ~~Inject computed S6 final-price uplift (Franz)~~ — **INVALIDATED** (no online jump exists; recon).
+  Instead: reframe S6 churn as effort+commitment+underwriting-uncertainty; make the twin/sim
+  use `scope.premium(tariff, age)` so personas carry a real age and see the real price.
+- Wire `scope.premium(tariff, age)` into the stepwise generator (sample/derive a per-session
+  age) so S4/S6 prices match the real curve instead of a static figure. **[do next]**
 - Multi-seed pooled tuning at N≥72/persona; posterior-aware Beta updates in `tune.py`.
 - Replace `online_completion` with causal dials (purchase_resolve / trust_in_calculator /
   need_urgency / self_service_confidence) so conversion emerges from surviving hazards (codex P3).

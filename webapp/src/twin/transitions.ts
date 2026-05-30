@@ -109,9 +109,10 @@ export function advance(step: string, store: StoreSlice, rec: RecorderSlice): vo
       return;
     }
     case "S6_PERSONAL_DATA": {
-      // Compute final price (health = "yes" adds €3 loading)
-      const base  = (store.get("/provisionalPrice") as number) ?? 68.14;
-      const final = store.get("/formData/health") === "yes" ? base + 3.0 : base;
+      // Real funnel (CDP recon): the online final price EQUALS the provisional age+tariff
+      // premium — health answers do NOT change it (no online surcharge; underwriting is
+      // offline). See research/findings/pricing_recon.md.
+      const final = (store.get("/provisionalPrice") as number) ?? 75.36;
       store.set("/finalPrice", final);
       rec.emit("price_reveal", "optimal_final", final);
       return;

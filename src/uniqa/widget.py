@@ -167,15 +167,15 @@ def widget_response_model() -> dict:
                 "invalid/empty DOB or SV, then Weiter": "inline validation_error, stays on S3",
             },
             "S4_TARIFF_SELECT": {
-                "select start": f"reveals Start ≈€{start}/mo (price_reveal) and advances to S6",
-                "select optimal": f"reveals Optimal ≈€{optimal}/mo (price_reveal) and advances to S6",
+                "select start": f"reveals Start ≈€{start}/mo (price_reveal; the exact figure depends on your AGE) and advances to S6",
+                "select optimal": f"reveals Optimal ≈€{optimal}/mo (price_reveal; depends on your AGE) and advances to S6",
                 "click opt_plus or premium": "shows 'Beratung erforderlich' (advisory-only) — does NOT advance; must pick Start/Optimal to finish online",
                 "open (i) tooltip on a coverage row": "shows a one-line explanation; stays on S4",
                 "Weiter with no tariff selected": "validation_error",
             },
             "S6_PERSONAL_DATA": {
-                "fill name/email/SV + health answers, then submit": "computes & reveals the FINAL monthly price (price_reveal); it is ≈ the provisional price but can be higher once health answers are entered",
-                "Abschließen after the final price": "ONLINE PURCHASE → convert",
+                "fill name/email/SV + health answers, then submit": "the FINAL online price EQUALS the provisional age+tariff premium — it does NOT change based on your health answers (health is collected for offline underwriting/eligibility, and the binding premium is confirmed later). The friction here is the long questionnaire + the commitment + uncertainty about the eventual underwritten premium, NOT a displayed price jump",
+                "Abschließen": "ONLINE PURCHASE → convert",
             },
             "any_step": {
                 "close tab / external link / leave": "abandon (not a conversion)",

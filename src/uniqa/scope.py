@@ -59,13 +59,42 @@ IN_SCOPE_INSURED  = {Insured.SELF}
 ONLINE_TARIFFS    = {Tariff.START, Tariff.OPTIMAL}      # conversion targets
 ADVISORY_TARIFFS  = {Tariff.OPT_PLUS, Tariff.PREMIUM}   # out-of-scope handoff
 
-# Official monthly premium (age 27, ÖGK-insured) — tariff product reference.
+# Official monthly premium (age ~27, ÖGK) — kept as a back-compat reference point.
 TARIFF_PRICE_EUR = {
     Tariff.START:   38.74,
     Tariff.OPTIMAL: 68.14,
     Tariff.OPT_PLUS: 96.66,
     Tariff.PREMIUM: 140.15,
 }
+
+# Real age→monthly-premium curve (Chrome-CDP recon 2026, ÖGK, gender-neutral). Findings:
+# price = f(age, tariff) ONLY — SV, gender and HEALTH answers do NOT change the online
+# premium, and there is NO online price-jump after the health questionnaire (the binding
+# premium is confirmed offline via underwriting). See research/findings/pricing_recon.md.
+# Dense knots from the CDP sweep (ages 18–70, ÖGK 2026). NOTE the youth band: age 18 is
+# ~half price, 21 jumps to the normal curve. Confirmed NO effect: SV, gender, health/BMI/smoker.
+_AGE_KNOTS = [18, 21, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70]
+_PREMIUM_CURVE = {
+    Tariff.START:    [25.53, 35.42, 37.75, 39.91, 41.10, 42.24, 43.90, 45.97, 48.26, 50.77, 53.12, 55.01],
+    Tariff.OPTIMAL:  [35.40, 62.34, 66.40, 70.29, 72.62, 74.82, 77.74, 81.10, 84.74, 88.81, 92.90, 96.30],
+    Tariff.OPT_PLUS: [51.92, 88.29, 94.06, 100.06, 104.29, 108.55, 113.98, 119.27, 124.57, 130.85, 137.83, 143.58],
+    Tariff.PREMIUM:  [75.29, 128.03, 136.39, 145.09, 151.23, 157.41, 165.27, 172.94, 180.63, 189.73, 199.86, 208.19],
+}
+
+
+def premium(tariff: Tariff, age: float) -> float:
+    """Real online monthly premium = f(age, tariff), linearly interpolated on the recon
+    curve. SV / gender / health answers do NOT affect it; final == provisional online."""
+    ks, ys = _AGE_KNOTS, _PREMIUM_CURVE[tariff]
+    if age <= ks[0]:
+        return ys[0]
+    if age >= ks[-1]:
+        return ys[-1]
+    for i in range(len(ks) - 1):
+        if ks[i] <= age <= ks[i + 1]:
+            f = (age - ks[i]) / (ks[i + 1] - ks[i])
+            return round(ys[i] + f * (ys[i + 1] - ys[i]), 2)
+    return ys[0]
 
 # In-scope online steps (Privatarzt path). ADDON_SELECT flagged — see SCOPE NOTE.
 ADDON_IS_INSCOPE = False

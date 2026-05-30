@@ -1,0 +1,32 @@
+{
+ "source": "uniqa.at/rechner/krankenversicherung — api.ovtapp.com/health-insurance-calculator-ms/v1 (Chrome-CDP, 2026)",
+ "note": "Online displayed premium = f(age, tariff) ONLY. Captured via /products + /premiums (not captcha-gated). Re-runnable: research/price_probe.js (run in 2 chunks; CDP eval TIMEOUT=15s caps ~13 calls/eval).",
+ "curve_by_age_oegk_eur": [
+  {"age": 18, "Start": 25.53, "Optimal": 35.40, "Opt. Plus": 51.92, "Premium": 75.29},
+  {"age": 21, "Start": 35.42, "Optimal": 62.34, "Opt. Plus": 88.29, "Premium": 128.03},
+  {"age": 25, "Start": 37.75, "Optimal": 66.40, "Opt. Plus": 94.06, "Premium": 136.39},
+  {"age": 30, "Start": 39.91, "Optimal": 70.29, "Opt. Plus": 100.06, "Premium": 145.09},
+  {"age": 35, "Start": 41.10, "Optimal": 72.62, "Opt. Plus": 104.29, "Premium": 151.23},
+  {"age": 40, "Start": 42.24, "Optimal": 74.82, "Opt. Plus": 108.55, "Premium": 157.41},
+  {"age": 41, "Start": 42.53, "Optimal": 75.36, "Opt. Plus": 109.56, "Premium": 158.87},
+  {"age": 45, "Start": 43.90, "Optimal": 77.74, "Opt. Plus": 113.98, "Premium": 165.27},
+  {"age": 50, "Start": 45.97, "Optimal": 81.10, "Opt. Plus": 119.27, "Premium": 172.94},
+  {"age": 55, "Start": 48.26, "Optimal": 84.74, "Opt. Plus": 124.57, "Premium": 180.63},
+  {"age": 60, "Start": 50.77, "Optimal": 88.81, "Opt. Plus": 130.85, "Premium": 189.73},
+  {"age": 65, "Start": 53.12, "Optimal": 92.90, "Opt. Plus": 137.83, "Premium": 199.86},
+  {"age": 70, "Start": 55.01, "Optimal": 96.30, "Opt. Plus": 143.58, "Premium": 208.19},
+  {"age": 75, "Start": 55.98, "Optimal": 97.86, "Opt. Plus": null, "Premium": null}
+ ],
+ "factor_isolation": {
+  "sv_age45_optimal": {"1": 77.74, "2": 77.74, "3": 77.74, "4": 77.74, "6": 77.74, "11": 77.74, "verdict": "NO EFFECT"},
+  "gender_age30_optimal": {"male": 70.29, "female": 70.29, "verdict": "NO EFFECT (EU unisex)"},
+  "health_age40_optimal": {"clean": 74.82, "with_obesity_smoker_condition": 74.82, "jump": 0.0, "verdict": "NO EFFECT — health/BMI/smoker ignored by displayed-price endpoints"},
+  "addons": {"available": [], "verdict": "none offered for PRIVATE_DOCTOR"}
+ },
+ "tariff_meta": {
+  "Start": {"maxCoverageId": 11, "maxCoverageValue": 1400, "tariffCode": "442500"},
+  "Optimal": {"maxCoverageId": 12, "maxCoverageValue": 2800, "tariffCode": "442550"},
+  "Opt. Plus": {"maxCoverageId": 13, "maxCoverageValue": 4200, "tariffCode": "442600"},
+  "Premium": {"maxCoverageId": 14, "maxCoverageValue": 8400, "tariffCode": "442650"}
+ }
+}

@@ -210,7 +210,8 @@ export default function App() {
   function onCalc() {
     if (form.email) rec.emit("keystroke", "email", form.email.length);
     rec.emit("submit", "health", form.health);
-    const p = form.health === "yes" ? 71.0 : 68.14;
+    // real funnel: final online price == provisional (health does NOT surcharge online)
+    const p = 68.14;
     rec.emit("price_reveal", "optimal_final", p); setFinal(p);
   }
 
