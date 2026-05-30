@@ -34,3 +34,7 @@ karpathy-experiment/
 
 # Stray / unrelated experiments
 tictactoe-extension/
+
+# React capture app (Node)
+webapp/node_modules/
+webapp/dist/

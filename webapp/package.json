@@ -1,0 +1,20 @@
+{
+  "name": "uniqa-capture",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "UNIQA funnel capture widget — records real mouse events, emits high-level ActivityLog.",
+  "scripts": {
+    "dev": "vite --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --port 5173"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.8"
+  }
+}

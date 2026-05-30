@@ -154,195 +154,39 @@ def render_token(tok, main):
 
 
 def render_capture_view():
-    """Walk the real funnel as a human; every action is timestamped with real dwell."""
-    from uniqa.capture import SessionRecorder
-    from uniqa.widget import TARIFFS, SV_OPTIONS, TARIFF_ROWS
-    from uniqa.contracts import EventType
-    from uniqa.funnel import Step
+    """Real-mouse capture lives in the React app (webapp/). This view links to it and
+    helps compare a captured session against the persona bot."""
+    import glob, os, json
+    CAP_URL = os.environ.get("UNIQA_CAPTURE_URL", "http://localhost:5173")
+    st.markdown("### 🎯 Play & capture (real mouse)")
+    st.markdown(
+        "Capturing **real physical mouse behaviour** (hover dwell, movement tone, tab "
+        "switches) needs the browser, so it lives in a small **React app**. It emits the "
+        "same high-level `ActivityLog` the persona bots produce.")
+    try:
+        st.link_button("▶ Open the capture app", CAP_URL)
+    except Exception:
+        st.markdown(f"[▶ Open the capture app]({CAP_URL})")
+    st.caption("Not running yet? Start it once:")
+    st.code("cd webapp && npm install && npm run dev   # http://localhost:5173", language="bash")
+    st.divider()
 
-    STEPS = [Step.COVERAGE_TYPE, Step.INSURED, Step.PERSONAL_INFO,
-             Step.TARIFF_SELECT, Step.PERSONAL_DATA]
-
-    def hoverables(step):
-        """(label, element_id, event_type) the user can mark as 'looked at' per step."""
-        if step is Step.COVERAGE_TYPE:
-            return [("Bei Arztbesuchen", "bei_arztbesuchen", EventType.HOVER),
-                    ("Im Krankenhaus", "im_krankenhaus", EventType.HOVER)]
-        if step is Step.INSURED:
-            return [("Ich selbst", "ich_selbst", EventType.HOVER),
-                    ("Andere Personen", "andere_personen", EventType.HOVER)]
-        if step is Step.PERSONAL_INFO:
-            return [("Geburtsdatum", "date_of_birth", EventType.HOVER),
-                    ("SV-Nummer-Feld", "sv_number", EventType.HOVER)]
-        if step is Step.TARIFF_SELECT:
-            return ([(f"{t['name']} (€{t['price_eur']})", t["id"], EventType.PRICE_HOVER) for t in TARIFFS]
-                    + [(f"ⓘ {r}", r, EventType.TOOLTIP_OPEN) for r in TARIFF_ROWS])
-        if step is Step.PERSONAL_DATA:
-            return [("E-Mail-Feld", "email", EventType.HOVER),
-                    ("Gesundheitsfragen", "health_answers", EventType.HOVER),
-                    ("Endpreis", "final_price", EventType.HOVER)]
-        return []
-
-    with st.sidebar:
-        hint = st.selectbox("Role-play which persona?", list(PERSONAS),
-                            format_func=lambda p: PERSONA_META[p]["label"])
-        st.caption(PERSONA_META[hint]["blurb"])
-        if st.button("⏺ Start / reset capture", use_container_width=True):
-            for k in [k for k in list(st.session_state) if k.startswith(("cap_", "ms_"))]:
-                del st.session_state[k]
-            rec = SessionRecorder(persona_hint=hint)
-            rec.enter(STEPS[0].value)
-            st.session_state.update(rec=rec, cap_i=0, cap_done=False, cap_term=None,
-                                    cap_final_shown=False, cap_away=False)
-
-    if "rec" not in st.session_state:
-        st.info("Pick the persona you'll role-play in the sidebar, then **⏺ Start capture** — "
-                "click through the real funnel and your actions are logged with real timing.")
+    st.markdown("#### Captured sessions")
+    files = sorted(glob.glob("_local/captures/*.json"), key=os.path.getmtime, reverse=True)
+    if not files:
+        st.info("No captures yet — finish a session in the capture app and **Download log "
+                "JSON** into `_local/captures/`.")
         return
-
-    rec = st.session_state["rec"]
-    i = st.session_state["cap_i"]
-
-    def advance(terminal=None):
-        if terminal:
-            cur = STEPS[i].value if i < len(STEPS) else Step.PERSONAL_DATA.value
-            rec.abandon(cur, terminal.split(":", 1)[1] if ":" in terminal else terminal)
-            st.session_state.update(cap_done=True, cap_term=terminal)
-        else:
-            st.session_state["cap_i"] = i + 1
-            if st.session_state["cap_i"] < len(STEPS):
-                rec.enter(STEPS[st.session_state["cap_i"]].value)
-            else:
-                rec.enter(Step.PURCHASE.value)
-                rec.convert(Step.PURCHASE.value)
-                st.session_state.update(cap_done=True, cap_term="convert")
-        st.rerun()
-
-    left, right = st.columns([3, 1])
-    with right:
-        st.markdown("### 📝 Live log")
-        st.caption(f"`{rec.session_id}` · {rec.now()}s elapsed")
-        st.dataframe([{"t": e.t, "type": e.type.value, "step": e.step.split('_', 1)[-1],
-                       "target": e.target, "val": e.value} for e in rec.log.events],
-                     height=420, use_container_width=True)
-
-    with left:
-        if st.session_state["cap_done"]:
-            term = st.session_state["cap_term"]
-            (st.success if term == "convert" else st.error)(f"Session captured — outcome: {term}")
-            path = rec.save()
-            st.markdown(f"Saved to `{path}`. Compare against the persona bot:")
-            st.code(f"python -m uniqa.compare {path} --persona {rec.persona_hint}", language="bash")
-            st.download_button("⬇ Download log JSON",
-                               data=json.dumps(rec.to_dict(), indent=2, ensure_ascii=False),
-                               file_name=f"{rec.session_id}.json", mime="application/json")
-            st.json(rec.to_dict())
-            return
-
-        step = STEPS[i]
-        st.markdown(f"#### Step {i+1}/{len(STEPS)} — `{step.value}`")
-        st.caption("Take your time — dwell is recorded as real seconds.")
-
-        # if the user switched away, the tab is inactive until they re-activate it
-        if st.session_state.get("cap_away"):
-            st.divider()
-            st.warning("🪟 You're on another tab — this page is inactive.")
-            if st.button("↩ Activate this tab (I'm back)", use_container_width=True):
-                away_s = round(rec.now() - st.session_state.get("cap_away_t", rec.now()), 2)
-                rec.tab_back(step.value, away_s)
-                st.session_state["cap_away"] = False
-                st.rerun()
-            if st.button("✕ Close the page (didn't come back)", use_container_width=True):
-                advance(terminal="abandon:closed_tab")
-            return
-
-        # visual attention: each element you mark logs a real-timestamped hover
-        hovs = hoverables(step)
-        if hovs:
-            seen = st.session_state.setdefault(f"cap_hov_{step.value}", set())
-            label2 = {lab: (eid, et) for lab, eid, et in hovs}
-            picked = st.multiselect("👁 Elements you looked at (hover = visual attention)",
-                                    [lab for lab, _, _ in hovs], key=f"ms_{step.value}")
-            for lab in picked:
-                if lab not in seen:
-                    eid, et = label2[lab]
-                    rec.record(et, step.value, target=eid)
-                    seen.add(lab)
-
-        if step is Step.COVERAGE_TYPE:
-            c1, c2 = st.columns(2)
-            if c1.button("Bei Arztbesuchen ✅", use_container_width=True):
-                rec.select(step.value, "bei_arztbesuchen"); advance()
-            if c2.button("Im Krankenhaus (out of scope)", use_container_width=True):
-                rec.select(step.value, "im_krankenhaus"); rec.nav_back(step.value)
-                advance(terminal="abandon:advisor_route(hospital)")
-
-        elif step is Step.INSURED:
-            c1, c2 = st.columns(2)
-            if c1.button("Ich selbst ✅", use_container_width=True):
-                rec.select(step.value, "ich_selbst"); advance()
-            if c2.button("Andere Personen (out of scope)", use_container_width=True):
-                rec.select(step.value, "andere_personen")
-                advance(terminal="abandon:advisor_route(others)")
-
-        elif step is Step.PERSONAL_INFO:
-            dob = st.text_input("Geburtsdatum (TT.MM.JJJJ)", key="cap_dob")
-            sv = st.selectbox("Sozialversicherung", [""] + SV_OPTIONS, key="cap_sv")
-            if st.button("Weiter →", use_container_width=True):
-                if dob:
-                    rec.keystrokes(step.value, "date_of_birth", len(dob))
-                if sv:
-                    rec.record(EventType.DROPDOWN_OPEN, step.value, target="sv_number")
-                    rec.select(step.value, "sv_number", value=sv)
-                advance()
-
-        elif step is Step.TARIFF_SELECT:
-            st.caption("Provisional premium (final price comes after health questions).")
-            for col, t in zip(st.columns(len(TARIFFS)), TARIFFS):
-                badge = "online ✅" if t["online"] else "Beratung ☑"
-                if col.button(f"{t['name']}\n€{t['price_eur']}\n{badge}", use_container_width=True):
-                    if t["online"]:
-                        rec.price_reveal(step.value, t["id"], t["price_eur"])
-                        rec.select(step.value, t["id"]); advance()
-                    else:
-                        rec.record(EventType.PREMIUM_CLICK, step.value, target=t["id"])
-                        st.warning(f"{t['name']} requires advisory — pick Start or Optimal to finish online.")
-            if st.button("‹ Zurück", key="cap_back_s4"):
-                rec.nav_back(step.value)
-
-        elif step is Step.PERSONAL_DATA:
-            st.caption("Health questions → final price.")
-            email = st.text_input("E-Mail", key="cap_email")
-            health = st.radio("Pre-existing conditions?", ["no", "yes"], key="cap_health")
-            if not st.session_state.get("cap_final_shown") and st.button("Endpreis berechnen", use_container_width=True):
-                rec.keystrokes(step.value, "email", len(email or ""))
-                rec.record(EventType.SUBMIT, step.value, target="health", value=health)
-                rec.price_reveal(step.value, "optimal_final", 71.0 if health == "yes" else 68.14)
-                st.session_state["cap_final_shown"] = True
-                st.rerun()
-            if st.session_state.get("cap_final_shown"):
-                st.metric("Final premium", "€71.00/mo" if health == "yes" else "€68.14/mo")
-                c1, c2 = st.columns(2)
-                if c1.button("Abschließen ✅", use_container_width=True):
-                    advance()
-                if c2.button("Abbrechen", use_container_width=True):
-                    advance(terminal="abandon:price_delta")
-
-        # persistent exit controls — a real user can bounce or get distracted anywhere
-        st.divider()
-        x1, x2, x3 = st.columns(3)
-        if x1.button("🪟 Switch to another tab", use_container_width=True,
-                     help="Logs tab_blur; you re-activate the tab when you come back (real time-away captured)."):
-            rec.tab_away(step.value)
-            st.session_state["cap_away"] = True
-            st.session_state["cap_away_t"] = rec.now()
-            st.rerun()
-        if x2.button("🔗 Leave via external link", use_container_width=True,
-                     help="Navigate away to another site (you're inside the UNIQA page)."):
-            advance(terminal="abandon:external_link")
-        if x3.button("✕ Leave / close page", use_container_width=True,
-                     help="Abandon here — the drop-off the Coach exists to prevent."):
-            advance(terminal="abandon:closed_page")
+    pick = st.selectbox("Session", files, format_func=os.path.basename)
+    persona = st.selectbox("Compare against persona", list(PERSONAS), index=1)
+    st.code(f"python -m uniqa.compare {pick} --persona {persona}", language="bash")
+    try:
+        data = json.load(open(pick))
+        st.caption(f"{len(data.get('events', []))} events · hint={data.get('persona_hint','?')} "
+                   f"· {data.get('source','')}")
+        st.dataframe(data.get("events", []), height=320, use_container_width=True)
+    except Exception as e:
+        st.warning(f"Could not read {pick}: {e}")
 
 
 # ─── Sidebar controls ─────────────────────────────────────────────────────────
