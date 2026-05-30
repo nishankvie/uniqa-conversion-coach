@@ -207,7 +207,12 @@ _COGNITIVE_MODEL = {
         "At the binding step (S6: personal + health data, about to buy), reluctance EMERGES from "
         "`commitment_anxiety` + `uncertainty_aversion` (the price is 'preliminary'; the binding "
         "premium is confirmed later) + how drained you are (`effort_left`) + `advisor_lean`. There "
-        "is NO price increase here — the final online price equals what you already saw at S4."),
+        "is NO price increase here — the final online price equals what you already saw at S4. "
+        "UNIVERSAL TRUTH: completing the WHOLE purchase of private health insurance online in one "
+        "sitting is the EXCEPTION, not the norm — it is a major binding commitment and the "
+        "questionnaire asks sensitive medical questions. Even confident, decisive online shoppers "
+        "very commonly stop here to finish later, re-read the terms, or check with a partner; most "
+        "sessions that reach S6 do NOT convert in this sitting (insurance abandons ~84% of carts)."),
     "decision_rule": (
         "Leave when a state variable crosses your tolerance, via the feeling that fired. Your "
         "`session_instance.visit_goal` (price-check vs research vs ready-to-buy) is your drive to "

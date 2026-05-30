@@ -271,7 +271,39 @@ free-value** track (send the comparison, a savings explainer, a reminder), or of
 conversion. This is the highest-value intervention class for the ~66% S4 drop and belongs in
 the coach overlay's decision policy (detect price-checker → SAVE_PROGRESS / CALLBACK / nurture).
 
+## 5g. Tuner result + the Franz / S6-anchor finding (threaded, N=40)
+
+Two threaded tuner runs on the fundamental-factor model plateaued at **ε≈0.16**. Peter and
+Judith land near their anchors; **Franz is the hard residual** — he over-converts (~0.45) and
+his S6 bounce stays ~0.22–0.37 vs the **0.78** target. Forcing it drove his dials
+PERSONA-INCOHERENT (`advisor_lean` 0.05→0.54, `commitment_anxiety`→0.90) — turning the
+decisive never-advisor online-completer into an anxious advisor-leaner. We **reverted Franz**
+to coherent dials; the tuner was optimising ε against a **wrong target**.
+
+**Root cause:** the per-persona S6 anchors (esp. `franz 0.78`) were derived from the
+final-price-JUMP mechanism that the CDP recon **disproved**. Franz is the most online-capable
+persona ("the segment that proves the calculator works"); with no price jump, a 78% S6 abandon
+for him is not credible, and the LLM correctly refuses to make him bail that often. The model
+isn't failing — the **anchor is stale**.
+
 ## 6. STATUS & DECISION POINT
+
+**Decision needed — the per-persona S6 anchors vs reality:**
+- **(A) Re-ground the S6 anchors.** Keep the overall ~5.6% conversion + S4 ~66% drop (solid),
+  but re-derive the per-persona S6 split consistent with the recon (no price jump) + persona
+  capability: Franz S6 LOWER (he completes more), Peter/Judith higher. Re-validate against the
+  corrected per-persona targets. *(Recommended — the anchor, not the model, is the bug.)*
+- **(B) Hybrid hazard (codex P4).** Force exact marginals via a calibrated Bernoulli outside
+  the LLM. Robust, but moves the decision out of the consciousness — and would force the same
+  stale franz=0.78, so only worth it after (A).
+- **(C) Soft gate.** Accept persona-coherent emergent behaviour with best-effort ε (~0.16) and
+  the rich, correct exit reasoning; stop chasing exact per-cell match.
+
+Status: `persona llm-agent` NOT locked. Behaviour + factor decomposition are sound and
+coherent; the blocker is a **stale per-persona S6 anchor**, not the generator. Next: redo the
+S6 anchor derivation (A) before any more tuning.
+
+### (historical) earlier decision point
 
 **`persona llm-agent` = NOT locked (in progress).** The model produces behaviourally correct,
 richly-reasoned sessions (subconscious `cant_grasp`/`too_much_effort`, exogenous `distracted`,

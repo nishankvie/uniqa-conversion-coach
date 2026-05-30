@@ -1,12 +1,12 @@
 {
-  "budget_pressure": 0.75,
-  "value_orientation": 0.55,
-  "complexity_overwhelm": 0.80,
-  "advisor_lean": 0.70,
+  "budget_pressure": 0.726,
+  "value_orientation": 0.533,
+  "complexity_overwhelm": 0.858,
+  "advisor_lean": 0.62,
   "patience": 0.25,
-  "ux_willingness": 0.30,
+  "ux_willingness": 0.271,
   "comprehension": 0.35,
   "distractibility": 0.65,
-  "commitment_anxiety": 0.70,
-  "uncertainty_aversion": 0.65
+  "commitment_anxiety": 0.466,
+  "uncertainty_aversion": 0.557
 }
