@@ -23,16 +23,21 @@ export HF_HUB_OFFLINE=1                        # compute nodes have no internet;
 export TRANSFORMERS_OFFLINE=1
 RUN="$HOME/.pixi/bin/pixi run --manifest-path $HOME/zero-one/pixi.toml"   # deps: torch transformers peft trl datasets accelerate
 # BASE: pre-stage on a LOGIN node, then point here (compute nodes have NO internet).
-#   huggingface-cli download Qwen/Qwen2.5-1.5B-Instruct --local-dir $HOME/models/qwen2.5-1.5b
+#   hf download Qwen/Qwen2.5-1.5B-Instruct --local-dir $HOME/models/qwen2.5-1.5b
+#   hf download openbmb/MiniCPM5-1B        --local-dir $HOME/models/minicpm5-1b
+# OUTROOT: where adapters land (one root per base model, so runs don't clobber).
+#   default Qwen; MiniCPM run:  sbatch --export=ALL,BASE=$HOME/models/minicpm5-1b,OUTROOT=leonardo/out_minicpm slurm_finetune.sh
 BASE="${BASE:-$HOME/models/qwen2.5-1.5b}"
+OUTROOT="${OUTROOT:-leonardo/out}"
+echo "BASE=$BASE  OUTROOT=$OUTROOT"
 
 # data must already be prepared on a login node: python leonardo/prepare_sft.py
 for P in judith franz peter; do
-  echo "=== fine-tuning persona: $P ==="
+  echo "=== fine-tuning persona: $P  (base=$BASE) ==="
   $RUN python3 leonardo/train_persona_lora.py --persona "$P" --base "$BASE" \
-       --data leonardo/data --out "leonardo/out/$P"
+       --data leonardo/data --out "$OUTROOT/$P"
 done
 
 echo "=== eval: local models vs the frontier dataset stats ==="
-$RUN python3 leonardo/eval_local.py --base "$BASE" --adapters leonardo/out --n 100 || true
-echo "DONE. Adapters in leonardo/out/<persona>; eval report printed above."
+$RUN python3 leonardo/eval_local.py --base "$BASE" --adapters "$OUTROOT" --n 100 || true
+echo "DONE. Adapters in $OUTROOT/<persona>; eval report printed above."

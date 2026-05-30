@@ -38,7 +38,10 @@ def main(argv=None) -> int:
     report = validate(by_persona)
     print(format_md(report, {"mode": "eval:local-model", "teacher": f"local:{args.base}",
                              "n": args.n, "ts": "-"}))
-    Path("leonardo/out/eval_local.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))
+    out_json = Path(args.adapters) / "eval_local.json"
+    report["_base"] = args.base
+    out_json.write_text(json.dumps(report, indent=2, ensure_ascii=False))
+    print(f"wrote {out_json}")
     # Compare to the frontier dataset stats for "statistically close" verdict.
     ds = Path("datasets/persona_v1/stats.json")
     if ds.exists():
