@@ -17,6 +17,10 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+.pi/
+
+# ─── Stray binaries / event handouts ──────────────────────
+*.pdf
 
 # ─── Agent / meta planning (local only) ───────────────────
 CLAUDE.md
