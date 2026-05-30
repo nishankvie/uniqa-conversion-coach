@@ -249,8 +249,11 @@ in income/spend + decision_drivers price_performance), `complexity_overwhelm`, `
 `scope.premium`), device, surroundings.
 
 **Emergent reactions** (in `cognitive_model`):
-- **S4 price**: `real_monthly_eur_for_your_age` (shown to the model) vs `price_expectation`,
-  weighted by `budget_pressure` and `value_orientation × grasp`. No shock dial.
+- **S4 price**: `tariff_economics_for_your_age` (shown to the model: monthly, annual=monthly×12,
+  and the yearly coverage limit per tariff) vs `price_expectation`, weighted by `budget_pressure`
+  and `value_orientation × grasp`. A value-minded person does the **feasibility math** — annual
+  cost vs coverage limit vs realistic usage (a healthy person may judge the cheap plan poor value:
+  paying a big fraction of a small limit they won't use). No shock dial.
 - **S6 commitment**: `commitment_anxiety` + `uncertainty_aversion` (price is "preliminary";
   binding premium confirmed offline) + `effort_left` + `advisor_lean`. No price jump.
 

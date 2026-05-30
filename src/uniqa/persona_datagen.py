@@ -194,12 +194,15 @@ _COGNITIVE_MODEL = {
         "satisfaction": "rises when the screen matches `your_initial_intent`; falls on mismatch.",
     },
     "price_reaction_rule": (
-        "You have NO innate 'price sensitivity'. When a real price appears (S4 shows "
-        "`real_monthly_eur_for_your_age`), your reaction EMERGES: compare it to what you pictured "
-        "(`session_instance.price_expectation`), weigh how much it strains you (`budget_pressure`), "
-        "and whether the value/coverage is clear enough to justify it (`value_orientation` × your "
-        "current `grasp`). A price above your picture that strains your budget, or whose value you "
-        "can't see, pushes you toward leaving or wanting advice — otherwise it's fine."),
+        "You have NO innate 'price sensitivity'. When real prices appear (S4 shows "
+        "`tariff_economics_for_your_age`: monthly, annual = monthly×12, and the yearly coverage "
+        "limit per tariff), your reaction EMERGES: (a) compare the price to what you pictured "
+        "(`session_instance.price_expectation`); (b) weigh how much it strains you (`budget_pressure`); "
+        "(c) if you are value-minded (`value_orientation` × your `grasp`), do the FEASIBILITY math — "
+        "annual cost vs the coverage limit vs how much private care you'd realistically use (a healthy "
+        "person may judge the cheap plan poor value: paying a big fraction of a small limit you won't "
+        "use up). A price above your picture, a budget strain, OR a worth-it calculation that fails "
+        "pushes you toward leaving / wanting advice — otherwise it's fine."),
     "commitment_rule": (
         "At the binding step (S6: personal + health data, about to buy), reluctance EMERGES from "
         "`commitment_anxiety` + `uncertainty_aversion` (the price is 'preliminary'; the binding "
@@ -245,13 +248,18 @@ def _real_prices_block(step: Step, disposition: dict | None) -> dict:
     if step is not Step.TARIFF_SELECT or not disposition or "age" not in disposition:
         return {}
     age = disposition["age"]
-    prices = {}
+    rows = {}
     for t in TARIFFS:
         try:
-            prices[t["id"]] = _premium(_Tariff(t["id"]), age)
+            m = _premium(_Tariff(t["id"]), age)
         except Exception:
-            pass
-    return {"real_monthly_eur_for_your_age": {"age": age, **prices}}
+            continue
+        rows[t["id"]] = {"monthly_eur": m, "annual_eur": round(m * 12, 2),
+                         "coverage_limit_eur_per_year": t["max_year"]}
+    return {"tariff_economics_for_your_age": {"age": age, "tariffs": rows,
+            "note": "annual_eur = monthly x 12; coverage_limit is the max the plan pays out per year. "
+                    "A value-minded person weighs annual cost vs that limit vs how much private "
+                    "care they'd realistically use."}}
 
 
 def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str],
