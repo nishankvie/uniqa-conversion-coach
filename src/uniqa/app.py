@@ -183,6 +183,8 @@ def render_capture_view():
 
     def advance(terminal=None):
         if terminal:
+            cur = STEPS[i].value if i < len(STEPS) else Step.PERSONAL_DATA.value
+            rec.abandon(cur, terminal.split(":", 1)[1] if ":" in terminal else terminal)
             st.session_state.update(cap_done=True, cap_term=terminal)
         else:
             st.session_state["cap_i"] = i + 1
@@ -277,6 +279,16 @@ def render_capture_view():
                     advance()
                 if c2.button("Abbrechen", use_container_width=True):
                     advance(terminal="abandon:price_delta")
+
+        # persistent exit controls — a real user can bounce or get distracted anywhere
+        st.divider()
+        x1, x2 = st.columns(2)
+        if x1.button("🪟 Switch to another tab / distracted", use_container_width=True,
+                     help="Logs a session_gap; your real time-away is captured in the timestamps."):
+            rec.tab_away(step.value); st.rerun()
+        if x2.button("✕ Leave / close page", use_container_width=True,
+                     help="Abandon here — the drop-off the Coach exists to prevent."):
+            advance(terminal="abandon:closed_page")
 
 
 # ─── Sidebar controls ─────────────────────────────────────────────────────────
