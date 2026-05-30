@@ -167,12 +167,13 @@ silent — each is explicitly covered by a test/diagnostic above. None left ungu
 
 Ordered by how much they collapse uncertainty per hour spent.
 
-1. **Measure ε_teacher_vs_psyche on 300 feeds (½ day, no training).**
-   Generate a small LLM-teacher batch with the §1 prompt, schema-gate it, and
-   compare its (persona,step) distributions to `psyche.py`. This is the single
-   cheapest test of assumption A1 — *before* any GPU. If teacher ≈ psyche on
-   shape, the whole bet is live; if wildly off, fix the prompt (or fall back to
-   psyche-as-teacher) before spending a Leonardo job.
+1. **Measure ε_teacher_vs_psyche on 300 feeds (½ day, no training).** ✅ HARNESS BUILT
+   `src/uniqa/persona_datagen.py` (`python -m uniqa.persona_datagen -n 300`): step-prompt
+   assembler (persona.md + persona.json + json-render + ASCII UI + atoms + reasoning),
+   schema gate (`parse_events`), batch + `epsilon_teacher_vs_psyche`, with an
+   OpenAI-compatible teacher backend and an offline stub (8 tests). Offline run:
+   ε=0.061 over 12 cells (pipeline-validation only). **Remaining: set `OPENAI_API_KEY`
+   (+ `OPENAI_BASE_URL`) and re-run for the real A1 number; gate ε ≤ ~0.05.**
 2. **Lock the vocab v0 spec** (§1.6 deltas) and land it in `tlm.py` + tests.
    Cheap, unblocks everything, prevents R7 retrains.
 3. **Build the data-gen harness** (`persona_datagen.py`): step prompt assembler
@@ -188,8 +189,8 @@ Ordered by how much they collapse uncertainty per hour spent.
 
 | ID | Assumption | Currently | De-risked by |
 |----|-----------|-----------|--------------|
-| A1 | LLM-teacher feeds ≈ real user samples | **unverified** | step 1 (ε_teacher_vs_psyche), later Loop B vs real logs |
-| A2 | persona.md + persona.json sys-prompt is enough for good feeds | assumed | step 1 |
+| A1 | LLM-teacher feeds ≈ real user samples | **harness ready, awaiting real-LLM run** | step 1 (ε_teacher_vs_psyche), later Loop B vs real logs |
+| A2 | persona.md + persona.json sys-prompt is enough for good feeds | assumed | step 1 (real-LLM run) |
 | A3 | known marginals (5.6/66/24/78) are reachable by 40-scalar calibration | assumed | step 4 (Stage-2 G2) |
 | A4 | decision-event granularity is sufficient (no ms timing) | design choice | step 4 G1/G2; revisit in v1 |
 | A5 | persona differentiation is learnable, not tag-memorised | assumed | step 4 G3 under tag-dropout |
