@@ -150,6 +150,10 @@ class BatchedLocalTeacher(LocalTeacher):
             out = json.loads(_strip_fences(raw))
         except Exception:
             out = {}
+        if isinstance(out, list):          # model emitted a bare events array
+            out = {"events": out}
+        elif not isinstance(out, dict):
+            out = {}
         r.t += r.rng.uniform(0.5, 2.0)
         step_evs = out.get("events") if isinstance(out, dict) else None
         done_here = []
