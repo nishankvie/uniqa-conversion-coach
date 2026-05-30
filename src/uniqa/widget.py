@@ -89,6 +89,8 @@ STEP_ACTIONS: dict[Step, list[tuple[str, str | None]]] = {
 def legal_events(step: Step) -> set[str]:
     base = {EventType.STEP_ENTER.value, EventType.IDLE.value, EventType.PAUSE.value,
             EventType.HOVER.value, EventType.MOUSE_MOVE.value, EventType.NAV_BACK.value,
+            EventType.FIELD_FOCUS.value, EventType.FIELD_BLUR.value,  # focus/blur on any field
+            EventType.SUBMIT.value,                           # 'Weiter' is legal on every step
             EventType.SESSION_GAP.value,                      # returned after a pause
             EventType.TAB_BLUR.value, EventType.TAB_FOCUS.value,  # tab switch away / re-activate
             EventType.ABANDON.value, EventType.CONVERT.value}
