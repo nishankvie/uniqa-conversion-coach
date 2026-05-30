@@ -156,12 +156,32 @@ def render_token(tok, main):
 def render_capture_view():
     """Walk the real funnel as a human; every action is timestamped with real dwell."""
     from uniqa.capture import SessionRecorder
-    from uniqa.widget import TARIFFS, SV_OPTIONS
+    from uniqa.widget import TARIFFS, SV_OPTIONS, TARIFF_ROWS
     from uniqa.contracts import EventType
     from uniqa.funnel import Step
 
     STEPS = [Step.COVERAGE_TYPE, Step.INSURED, Step.PERSONAL_INFO,
              Step.TARIFF_SELECT, Step.PERSONAL_DATA]
+
+    def hoverables(step):
+        """(label, element_id, event_type) the user can mark as 'looked at' per step."""
+        if step is Step.COVERAGE_TYPE:
+            return [("Bei Arztbesuchen", "bei_arztbesuchen", EventType.HOVER),
+                    ("Im Krankenhaus", "im_krankenhaus", EventType.HOVER)]
+        if step is Step.INSURED:
+            return [("Ich selbst", "ich_selbst", EventType.HOVER),
+                    ("Andere Personen", "andere_personen", EventType.HOVER)]
+        if step is Step.PERSONAL_INFO:
+            return [("Geburtsdatum", "date_of_birth", EventType.HOVER),
+                    ("SV-Nummer-Feld", "sv_number", EventType.HOVER)]
+        if step is Step.TARIFF_SELECT:
+            return ([(f"{t['name']} (€{t['price_eur']})", t["id"], EventType.PRICE_HOVER) for t in TARIFFS]
+                    + [(f"ⓘ {r}", r, EventType.TOOLTIP_OPEN) for r in TARIFF_ROWS])
+        if step is Step.PERSONAL_DATA:
+            return [("E-Mail-Feld", "email", EventType.HOVER),
+                    ("Gesundheitsfragen", "health_answers", EventType.HOVER),
+                    ("Endpreis", "final_price", EventType.HOVER)]
+        return []
 
     with st.sidebar:
         hint = st.selectbox("Role-play which persona?", list(PERSONAS),
@@ -220,6 +240,19 @@ def render_capture_view():
         step = STEPS[i]
         st.markdown(f"#### Step {i+1}/{len(STEPS)} — `{step.value}`")
         st.caption("Take your time — dwell is recorded as real seconds.")
+
+        # visual attention: each element you mark logs a real-timestamped hover
+        hovs = hoverables(step)
+        if hovs:
+            seen = st.session_state.setdefault(f"cap_hov_{step.value}", set())
+            label2 = {lab: (eid, et) for lab, eid, et in hovs}
+            picked = st.multiselect("👁 Elements you looked at (hover = visual attention)",
+                                    [lab for lab, _, _ in hovs], key=f"ms_{step.value}")
+            for lab in picked:
+                if lab not in seen:
+                    eid, et = label2[lab]
+                    rec.record(et, step.value, target=eid)
+                    seen.add(lab)
 
         if step is Step.COVERAGE_TYPE:
             c1, c2 = st.columns(2)
