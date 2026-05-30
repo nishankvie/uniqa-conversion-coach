@@ -60,24 +60,19 @@ class BatchedLocalTeacher(LocalTeacher):
 
     def _gen_chunk(self, chunk: list[list[dict]]) -> list[str]:
         torch = self._torch
-        # tokenize each via the chat template (identical to single-session path), then left-pad
-        id_lists = [self.tok.apply_chat_template(m, add_generation_prompt=True, tokenize=True)
-                    for m in chunk]
-        maxlen = max(len(x) for x in id_lists)
-        pad = self.tok.pad_token_id
-        input_ids, attn = [], []
-        for ids in id_lists:
-            padn = maxlen - len(ids)
-            input_ids.append([pad] * padn + ids)
-            attn.append([0] * padn + [1] * len(ids))
-        input_ids = torch.tensor(input_ids, device=self.model.device)
-        attn = torch.tensor(attn, device=self.model.device)
+        # render each conversation to text via the chat template, then batch-tokenize with
+        # LEFT padding (decoder-only). add_special_tokens=True so the tokenizer adds bos where
+        # the base expects it (MiniCPM <s>; Qwen none) — matches the single-session path.
+        texts = [self.tok.apply_chat_template(m, tokenize=False, add_generation_prompt=True)
+                 for m in chunk]
+        enc = self.tok(texts, return_tensors="pt", padding=True, add_special_tokens=True)
+        enc = {k: v.to(self.model.device) for k, v in enc.items()}
+        plen = enc["input_ids"].shape[1]
         with torch.no_grad():
-            gen = self.model.generate(input_ids=input_ids, attention_mask=attn,
-                                      max_new_tokens=self.max_new_tokens, do_sample=True,
-                                      temperature=0.9, top_p=0.95, pad_token_id=pad)
-        gen = gen[:, input_ids.shape[1]:]
-        return [self.tok.decode(g, skip_special_tokens=True) for g in gen]
+            gen = self.model.generate(**enc, max_new_tokens=self.max_new_tokens, do_sample=True,
+                                      temperature=0.9, top_p=0.95,
+                                      pad_token_id=self.tok.pad_token_id)
+        return [self.tok.decode(g[plen:], skip_special_tokens=True) for g in gen]
 
     # ── cohort lockstep walk (mirrors _session_stepwise, batched per step) ────
     def generate_cohort(self, persona: str, n: int, seed: int = 0) -> list[ActivityLog]:
