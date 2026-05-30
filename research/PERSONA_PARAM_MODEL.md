@@ -198,7 +198,81 @@ wandered to 0.16); mitigate with **multi-seed averaging per round** and a *persi
 best* (current tuner keeps best-of-its-own-run only, so re-running can regress — restore from
 git if so).
 
-## 6. Recommended next steps
+## 5e. Audit + codex iteration (re-review: are we doing the right thing?)
+
+**Integrity audit — PASS.** Diff of `prompts/personas/*.md` vs the task-input briefings shows the
+ONLY changes are the removed funnel-OUTCOME sentences (66/78/20%). Every GIVEN persona number
+(demographics, channel %, switch willingness 24%, NPS, 34/64/39% online) is untouched.
+`personas.json` and `PERSONA_WEIGHTS` (30/50/20) are read-only. We changed only the RULES
+(dials + state dynamics + prompt), never the given data. ✅
+
+**Taxonomy (static traits vs dynamic state):**
+
+| layer | members | role |
+|---|---|---|
+| STATIC traits (`params.json`, codified empirical values, never change in a session) | price_shock_s4, final_price_sensitivity_s6, complexity_overwhelm, advisor_lean, patience, online_completion, ux_willingness, comprehension, distractibility | fixed dispositions; rendered as graded words (never numbers) |
+| DYNAMIC state (evolve per step) | attention, satisfaction, effort_left, grasp, effort_vs_reward | the mind's running state |
+| per-session LATENT instance (sampled, persona-weighted) | time_pressure, purchase_resolve, price_expectation, advisor_need_today, screening_confidence, device, surroundings | this individual today; overrides the segment prior → population spread |
+
+Prompt now frames the model as the persona's **consciousness** that applies the fixed traits +
+the `cognitive_model` rules (trait→state→decision) to update state and decide. (codex flagged
+`online_completion` as an unidentifiable global 'stay' counter-force — see backlog.)
+
+**codex second opinion** (`research/findings/codex_review.md`): narrative lock comes from
+deterministic persona prose + too-coarse dial buckets; fix with per-session latent disposition
+(done, persona-weighted) + finer buckets (done, 7 levels). Oscillation is expected at N=40
+(Peter ~18% chance of 0 conv) → pool multi-seed + posterior-aware + damped updates + persisted
+global best (damping + global-best done; pooling wired in `evals --seeds`). Strongest rec
+(P4): move the stay/leave **Bernoulli out of the LLM** into a tiny calibrated hazard model
+(LLM keeps cognition/texture/thoughts) — robust marginals, but moves the decision out of the
+'consciousness brain'.
+
+**Result after the codex-informed iteration:** latent instance **broke the narrative lock for
+Judith & Peter** (Judith conv → .10/.09, S3 ✓; Peter S3 → .27/.25 ✓ in one run) but the runs are
+high-variance and **Franz over-converts (0.63)** because the **S6 final-price jump is never
+injected** — the LLM keeps the final price = estimate, so Franz's defining churn cannot fire.
+
+## 6. STATUS & DECISION POINT
+
+**`persona llm-agent` = NOT locked (in progress).** The model produces behaviourally correct,
+richly-reasoned sessions (subconscious `cant_grasp`/`too_much_effort`, exogenous `distracted`,
+intent-mismatch `dissatisfied`) and Judith/Peter land near their anchors, but we do **not** yet
+reliably hit all marginal targets. Two structural blockers + one architecture decision:
+
+1. **Structural (cheap, agreed): inject the computed S6 final price** (provisional + health
+   uplift) as a widget response so Franz faces the real jump. This is the #1 Franz blocker and
+   is target-free (it's widget mechanics we own).
+2. **Variance: pool multi-seed** (`evals --seeds 3`, N ≥ 72/persona for Peter) before gating.
+3. **DECISION — pure vs hybrid:**
+   - **(A) Pure consciousness** (current vision): keep the stay/leave decision in the LLM; add
+     S6 injection + multi-seed + a bit more dial tuning. Philosophically clean; may stay noisy.
+   - **(B) Hybrid hazard** (codex P4): LLM for texture/thoughts, a small calibrated logistic
+     hazard for the Bernoulli leave decision. Robust marginals, target-free prompt, but the
+     decision is partly outside the 'brain'.
+   - **(C) Soft gate**: accept the LLM agent's realistic behaviour with a best-effort ε≤0.12
+     rather than exact per-cell match.
+   *Recommendation:* do (1)+(2) first (cheap, may get (A) over the line); adopt (B) only if (A)
+   still won't hold the marginals.
+
+## 7. Backlog (next hardening — agreed to track)
+
+- Inject computed S6 final-price uplift as a widget response (Franz). **[do next]**
+- Multi-seed pooled tuning at N≥72/persona; posterior-aware Beta updates in `tune.py`.
+- Replace `online_completion` with causal dials (purchase_resolve / trust_in_calculator /
+  need_urgency / self_service_confidence) so conversion emerges from surviving hazards (codex P3).
+- Clarify advisor-handoff vs Peter's service-as-win framing in the prompt (codex P3).
+- Optional hybrid hazard model (codex P4) — only if pure approach won't converge.
+- Soften deterministic persona prose to population-prior wording (touches briefing prose — needs sign-off).
+
+## 8. After lock — optional: local fast model (added to plan)
+
+Once params are locked and the eval passes, distil the LLM agent into a **local, fast model**
+that must pass the SAME `evals/persona_stats_eval.py`. Candidate approaches to compare:
+small decoder TLM over journey tokens (existing `tlm.py` direction) · a tiny per-step
+classifier/hazard (if we go hybrid) · LoRA-distil of the teacher. Pick on eval conformance +
+latency, transformer or not. Output: local persona model behind the same interface.
+
+## 9. (historical) earlier recommended next steps
 
 0. **Stabilise the tuner** (`research/tune.py` exists, ε→0.097): add multi-seed averaging
    per round + a persisted global best so re-runs can't regress. Soften Judith's briefing

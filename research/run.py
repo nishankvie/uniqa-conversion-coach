@@ -30,6 +30,7 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import random as _random
 from uniqa.funnel import Step, PERSONA_WEIGHTS, ABANDON_PROBS
 from uniqa.contracts import EventType
 from uniqa.persona_datagen import (
@@ -185,6 +186,7 @@ def main(argv=None) -> int:
     ap.add_argument("--quant", action="store_true", help="inject curated behavioural metrics")
     ap.add_argument("--params", action="store_true", help="parameter-driven dials (whole-session)")
     ap.add_argument("--state", action="store_true", help="stepwise: track state vars + felt distract/dissatisfy decision")
+    ap.add_argument("--population", action="store_true", help="sample personas per the given 30/50/20 distribution (N total) instead of equal-N each")
     ap.add_argument("--offline", action="store_true", help="offline stub (no API)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--workers", type=int, default=8, help="concurrent LLM calls")
@@ -206,11 +208,20 @@ def main(argv=None) -> int:
     out = Path(__file__).resolve().parent / "runs" / f"{ts}_{mode}"
     out.mkdir(parents=True, exist_ok=True)
 
+    # per-persona counts: equal-N (default, stable cell estimates) or sampled to 30/50/20
+    if args.population:
+        draws = _random.Random(args.seed).choices(
+            PERSONAS, weights=[PERSONA_WEIGHTS[p] for p in PERSONAS], k=args.n)
+        counts = {p: draws.count(p) for p in PERSONAS}
+        print(f"population mode: N={args.n} sampled to {PERSONA_WEIGHTS} → {counts}")
+    else:
+        counts = {p: args.n for p in PERSONAS}
+
     by_persona = {}
     with (out / "logs.jsonl").open("w") as fh:
         for persona in PERSONAS:
-            print(f"generating {args.n}× {persona} (teacher={teacher.name}, mode={mode}) …")
-            logs = generate(persona, args.n, teacher, args.seed, workers)
+            print(f"generating {counts[persona]}× {persona} (teacher={teacher.name}, mode={mode}) …")
+            logs = generate(persona, counts[persona], teacher, args.seed, workers)
             by_persona[persona] = logs
             for log in logs:
                 fh.write(json.dumps({"persona": persona, "events": [e.to_dict() for e in log.events]}) + "\n")

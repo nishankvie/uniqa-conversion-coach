@@ -146,9 +146,12 @@ def build_step_prompt(persona: str, step: Step, atoms: list[dict] | None = None,
 # editable prompts/personas/<persona>.params.json. Rendered to GRADED LANGUAGE (never
 # raw numbers, never a churn target) so the agent reasons with a 'pressure', not a quota.
 # A tuning loop nudges these dials until the funnel stats EMERGE (research/run.py --params).
-_PARAM_LEVELS = [(0.2, "very low"), (0.4, "low"), (0.6, "moderate"), (0.8, "high"), (1.01, "very high")]
-_PARAM_VERB = {"very low": "almost never", "low": "rarely", "moderate": "sometimes",
-               "high": "often", "very high": "very often"}
+# Finer granularity (7 levels) so small dial nudges register in the prompt (codex P1).
+_PARAM_LEVELS = [(0.15, "very low"), (0.3, "low"), (0.45, "somewhat low"), (0.6, "moderate"),
+                 (0.75, "fairly high"), (0.9, "high"), (1.01, "very high")]
+_PARAM_VERB = {"very low": "almost never", "low": "rarely", "somewhat low": "occasionally",
+               "moderate": "sometimes", "fairly high": "fairly often", "high": "often",
+               "very high": "very often"}
 _PARAM_TEXT = {
     "price_shock_s4": "First-price shock (S4): {lvl} — when the tariff price FIRST appears and it is above what you hoped, you {verb} leave right there (to think / compare / call) instead of continuing.",
     "complexity_overwhelm": "Complexity overwhelm: {lvl} — too many tariffs, jargon and no clear recommendation {verb} make you give up early (S3 or S4).",
@@ -164,6 +167,33 @@ _PARAM_TEXT = {
 
 def _bucket(x: float) -> str:
     return next(lbl for thr, lbl in _PARAM_LEVELS if x < thr)
+
+
+# The brain framing: the model is the persona's CONSCIOUSNESS. STATIC traits (dials) are
+# fixed codified empirical values; DYNAMIC state evolves per step via the cognitive rules;
+# the decision is a state-threshold crossing. (taxonomy: docs in research/PERSONA_PARAM_MODEL.md)
+_CONSCIOUSNESS_PREAMBLE = (
+    "\n\nYOU ARE THE CONSCIOUSNESS OF THIS PERSON. Simulate a real mind, not a form-filler.\n"
+    "• Your BEHAVIOURAL DIALS above are FIXED dispositions (codified empirical values) — "
+    "do not second-guess them; let them govern how strongly each pressure acts on you.\n"
+    "• You also carry a MENTAL STATE (attention, satisfaction, effort_left, grasp, "
+    "effort_vs_reward) that CHANGES as you move through the funnel.\n"
+    "• At each step: perceive the screen, UPDATE your mental state per `cognitive_model`, "
+    "then make a FELT decision — you leave when a state variable crosses your tolerance.")
+
+_COGNITIVE_MODEL = {
+    "state_update_rules": {
+        "grasp": "starts high; on a high-complexity screen it falls toward your `comprehension` dial. Low comprehension × high complexity → you read without absorbing.",
+        "effort_vs_reward": "falls on heavy screens; your `ux_willingness` sets how fast (low willingness → 'too much work for little').",
+        "attention": "drifts down over time; your `distractibility` × `session_context` (mobile / commuting / busy surroundings) sets the chance an exogenous interruption knocks it down sharply.",
+        "effort_left": "drains with every field and step; your `patience` sets the rate (low patience → drains fast → exhaustion).",
+        "satisfaction": "rises when the screen matches `your_initial_intent`; falls on mismatch — price above hope (per `price_shock_s4` / `final_price_sensitivity_s6`), an advisory wall (per `advisor_lean`), or contradicting info.",
+    },
+    "decision_rule": (
+        "Leave when a state variable crosses your tolerance, via the feeling that fired. "
+        "`online_completion` is your baseline drive to push through — weigh it against the leave "
+        "pressures. Do NOT continue merely to see what's next."),
+}
 
 
 def params_block(persona: str) -> str:
@@ -197,7 +227,8 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
                                include_params: bool = False,
                                include_state: bool = False,
                                session_context: dict | None = None,
-                               intent: str | None = None) -> list[dict]:
+                               intent: str | None = None,
+                               disposition: dict | None = None) -> list[dict]:
     """One STEP-BASED turn: emit this step's events, (optionally) track state vars, and
     make an explicit felt stay/leave decision. Returns (system, user) messages."""
     sys = agent_persona_prompt(persona)
@@ -205,6 +236,12 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
         sys += quant_metrics_block(persona)
     if include_params:
         sys += params_block(persona)
+    if include_state:
+        sys += _CONSCIOUSNESS_PREAMBLE
+        if disposition:
+            sys += ("\n\nTODAY'S SESSION INSTANCE (who this individual is RIGHT NOW — this "
+                    "OVERRIDES the segment profile whenever they conflict):\n"
+                    + json.dumps(disposition, ensure_ascii=False))
 
     wrm = widget_response_model()
     first = not history_brief
@@ -258,6 +295,7 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
         "ui_ascii": ascii_screen(step),
         "action_space": render_action_space(step),
         "ux_complexity_here": ux_complexity(step),
+        **({"cognitive_model": _COGNITIVE_MODEL} if include_state else {}),
         "widget_responses_here": wrm["transitions"].get(step.value, {}),
         "conversion_definition": wrm["conversion_definition"],
         "your_running_state": state,
@@ -267,6 +305,8 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
     }
     if session_context:
         user["session_context"] = session_context
+    if disposition:
+        user["session_instance"] = disposition
     if intent:
         user["your_initial_intent"] = intent
     return [{"role": "system", "content": sys},
@@ -498,6 +538,7 @@ class LLMTeacher:
         state = {"attention": 1.0, "satisfaction": 0.7, "effort_left": 1.0,
                  "grasp": 1.0, "effort_vs_reward": 0.7}
         ctx = _sample_session_context(persona, rng) if self.include_state else None
+        disp = _sample_disposition(persona, rng) if self.include_state else None
         intent = None
         events: list[dict] = []
         brief: list[str] = []
@@ -507,7 +548,8 @@ class LLMTeacher:
             msgs = build_step_decision_prompt(
                 persona, step, brief[-6:], state,
                 include_quant=self.include_quant, include_params=self.include_params,
-                include_state=self.include_state, session_context=ctx, intent=intent)
+                include_state=self.include_state, session_context=ctx, intent=intent,
+                disposition=disp)
             try:
                 out = json.loads(_strip_fences(self._call(msgs)))
             except Exception:
@@ -567,6 +609,51 @@ def _sample_session_context(persona: str, rng: random.Random) -> dict:
     device = _weighted(rng, _DEVICE_W.get(persona, [("desktop", 1.0)]))
     env = _weighted(rng, _ENV_W.get(persona, [("home", 1.0)]))
     return {"device": device, "surroundings": env}
+
+
+# Per-session LATENT DISPOSITION (codex P1): this individual TODAY. Sampled uniformly per
+# axis → population spread that breaks the deterministic 'narrative lock' of the persona
+# prose. It is heterogeneity, NOT a funnel target. Instance overrides the segment prior on
+# conflict, so e.g. a 'just curious / expects cheap' Judith bounces at S4 while an
+# 'urgent / prepared-for-premium / can-proceed-alone' Judith converts.
+_INSTANCE_AXES = {
+    "time_pressure": ["calm, has time", "mildly busy", "interrupted / rushed"],
+    "purchase_resolve": ["just curious / browsing", "seriously considering", "urgent need now"],
+    "price_expectation": ["expects it to be cheap", "flexible on price", "prepared for a premium price"],
+    "advisor_need_today": ["wants human reassurance before committing", "happy to proceed alone today"],
+    "screening_confidence": ["comfortable with forms/health questions", "a bit uncertain", "anxious about it"],
+}
+
+
+# Persona-weighted disposition priors: spread WITHIN a persona, but keep each persona's
+# defining sensitivity (e.g. Franz almost never 'prepared for premium' — he is price-jump
+# sensitive; Peter mostly anxious + wants reassurance). Axes not listed default to uniform.
+_DISP_W = {
+    "judith": {
+        "advisor_need_today": [("wants human reassurance before committing", .65), ("happy to proceed alone today", .35)],
+        "price_expectation": [("expects it to be cheap", .2), ("flexible on price", .6), ("prepared for a premium price", .2)],
+        "time_pressure": [("calm, has time", .3), ("mildly busy", .45), ("interrupted / rushed", .25)],
+    },
+    "franz": {
+        "advisor_need_today": [("happy to proceed alone today", .9), ("wants human reassurance before committing", .1)],
+        "price_expectation": [("expects it to be cheap", .45), ("flexible on price", .5), ("prepared for a premium price", .05)],
+        "purchase_resolve": [("just curious / browsing", .2), ("seriously considering", .55), ("urgent need now", .25)],
+        "screening_confidence": [("comfortable with forms/health questions", .7), ("a bit uncertain", .25), ("anxious about it", .05)],
+    },
+    "peter": {
+        "advisor_need_today": [("wants human reassurance before committing", .8), ("happy to proceed alone today", .2)],
+        "screening_confidence": [("comfortable with forms/health questions", .1), ("a bit uncertain", .4), ("anxious about it", .5)],
+        "price_expectation": [("expects it to be cheap", .55), ("flexible on price", .4), ("prepared for a premium price", .05)],
+    },
+}
+
+
+def _sample_disposition(persona: str, rng: random.Random) -> dict:
+    w = _DISP_W.get(persona, {})
+    out = {}
+    for axis, opts in _INSTANCE_AXES.items():
+        out[axis] = _weighted(rng, w[axis]) if axis in w else rng.choice(opts)
+    return out
 
 
 OpenAITeacher = LLMTeacher   # back-compat alias

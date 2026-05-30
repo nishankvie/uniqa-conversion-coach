@@ -41,3 +41,7 @@ webapp/dist/
 
 # Research run artifacts (raw generated sessions; reports promoted manually)
 research/runs/
+
+# eval reports (data; promote notable ones manually)
+evals/reports/
+research/runs/_global_best.json
