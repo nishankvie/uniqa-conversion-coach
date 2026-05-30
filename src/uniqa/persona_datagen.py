@@ -308,9 +308,14 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
                                session_context: dict | None = None,
                                intent: str | None = None,
                                disposition: dict | None = None,
-                               selected_tariff: str | None = None) -> list[dict]:
+                               selected_tariff: str | None = None,
+                               coach_intervention: str | None = None) -> list[dict]:
     """One STEP-BASED turn: emit this step's events, (optionally) track state vars, and
-    make an explicit felt stay/leave decision. Returns (system, user) messages."""
+    make an explicit felt stay/leave decision. Returns (system, user) messages.
+
+    coach_intervention: if set (Mode B = persona+widget+coach), a Coach widget was shown to
+    the user entering this step. The persona REACTS to it in-character and fills
+    `intervention_assessment` (helpful/engaging vs distracting/noisy) given its intent+state."""
     sys = agent_persona_prompt(persona)
     if include_quant:
         sys += quant_metrics_block(persona)
@@ -405,6 +410,22 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
         user["session_instance"] = {k: v for k, v in disposition.items() if not k.startswith("_")}
     if intent:
         user["your_initial_intent"] = intent
+    if coach_intervention:
+        user["coach_widget_shown"] = coach_intervention
+        out_schema["intervention_assessment"] = {
+            "reaction": "helpful | engaging | neutral | distracting | annoying",
+            "engaged": "<bool: did you interact with / read it>",
+            "effect": "<short: how (if at all) it changed your feeling / decision>",
+        }
+        rules.append(
+            "A COACH assistant (separate from the form) just showed you `coach_widget_shown`. "
+            "React in-character given your_initial_intent + running_state: if it addresses what "
+            "you actually needed (your open_question, a price worry, a confusing choice), it is "
+            "helpful/engaging — it may lift satisfaction/grasp/effort_vs_reward and keep you going "
+            "(or make you convert). If it is irrelevant, mistimed, or pushy, it is "
+            "distracting/annoying — it may lower attention/satisfaction and even push you to leave. "
+            "Fill `intervention_assessment` honestly; let it INFLUENCE (not dictate) your events, "
+            "state and decision.")
     return [{"role": "system", "content": sys},
             {"role": "user", "content": json.dumps(user, ensure_ascii=False)}]
 

@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 
 from uniqa.contracts import ActivityLog, Event, EventType, new_session_id
 from uniqa.funnel import Step
+from uniqa.interventions import NONE_ID, persona_facing
 from uniqa.persona_datagen import (
     _INSCOPE_FLOW, _sample_disposition, _sample_session_context, _strip_fences,
     build_step_decision_prompt, parse_session,
@@ -39,6 +40,14 @@ class _Run:
     brief: list = field(default_factory=list)
     t: float = 0.0
     active: bool = True
+    feeling: str | None = None
+    # coach-in-the-loop (Mode B)
+    pending_text: str | None = None     # coach widget to SHOW entering the next step
+    pending_id: str | None = None
+    shown_id: str | None = None         # the coach widget shown on the CURRENT step
+    last_iv: str | None = None
+    budget_used: int = 0
+    coach_log: list = field(default_factory=list)
 
 
 class BatchedLocalTeacher(LocalTeacher):
@@ -75,7 +84,12 @@ class BatchedLocalTeacher(LocalTeacher):
         return [self.tok.decode(g[plen:], skip_special_tokens=True) for g in gen]
 
     # ── cohort lockstep walk (mirrors _session_stepwise, batched per step) ────
-    def generate_cohort(self, persona: str, n: int, seed: int = 0) -> list[ActivityLog]:
+    def generate_cohort(self, persona: str, n: int, seed: int = 0, coach=None) -> list[ActivityLog]:
+        """Mode A (coach=None): persona + static funnel widget.
+        Mode B (coach set): persona + widget + coach. After each step the coach observes the
+        new events/feeling/state and may inject an intervention into the NEXT step; the persona
+        reacts to and assesses it. `coach` implements decide(persona, step, feeling, state,
+        budget_used, last_intervention) -> intervention_id (NONE_ID for no-op)."""
         runs: list[_Run] = []
         for i in range(n):
             rng = random.Random(seed + i)
@@ -94,14 +108,31 @@ class BatchedLocalTeacher(LocalTeacher):
             msgs_list = []
             for r in active:
                 r.events.append({"step": step.value, "type": "step_enter", "t": round(r.t, 2)})
+                r.shown_id = r.pending_id            # coach widget shown entering this step
                 msgs_list.append(build_step_decision_prompt(
                     persona, step, r.brief[-6:], r.state,
                     include_quant=self.include_quant, include_params=self.include_params,
                     include_state=self.include_state, session_context=r.ctx,
-                    intent=r.intent, disposition=r.disp, selected_tariff=r.selected_tariff))
+                    intent=r.intent, disposition=r.disp, selected_tariff=r.selected_tariff,
+                    coach_intervention=r.pending_text))
+                r.pending_text = r.pending_id = None  # consumed this step
             raws = self._call_batch(msgs_list)
             for r, raw in zip(active, raws):
                 self._apply_step(r, step, raw)
+            # coach reacts to the just-emitted behaviour → arm the next step
+            if coach is not None:
+                for r in active:
+                    if not r.active:
+                        continue
+                    cid = coach.decide(persona=persona, step=step, feeling=r.feeling,
+                                       state=r.state, budget_used=r.budget_used,
+                                       last_intervention=r.last_iv)
+                    if cid and cid != NONE_ID:
+                        r.pending_text = persona_facing(cid)
+                        r.pending_id = cid
+                        r.last_iv = cid
+                        r.budget_used += 1
+                        r.coach_log.append({"after_step": step.value, "intervention": cid})
 
         # survivors convert
         logs: list[ActivityLog] = []
@@ -140,6 +171,11 @@ class BatchedLocalTeacher(LocalTeacher):
                 for e in done_here:
                     if str(e.get("target") or "") in ("start", "optimal", "opt_plus", "premium"):
                         r.selected_tariff = str(e["target"]); break
+        if isinstance(out.get("feeling"), str):
+            r.feeling = out["feeling"]
+        if r.shown_id and isinstance(out.get("intervention_assessment"), dict):
+            r.coach_log.append({"step": step.value, "shown": r.shown_id,
+                                "assessment": out["intervention_assessment"]})
         if isinstance(out.get("intent"), str) and not r.intent:
             r.intent = out["intent"]
         if self.include_state and isinstance(out.get("state"), dict):
@@ -165,4 +201,5 @@ class BatchedLocalTeacher(LocalTeacher):
             if e.type in (EventType.CONVERT, EventType.ABANDON):
                 cut = i + 1; break
         log.events = evs[:cut]
+        log.coach_log = r.coach_log        # interventions shown + persona assessments (Mode B)
         return log
