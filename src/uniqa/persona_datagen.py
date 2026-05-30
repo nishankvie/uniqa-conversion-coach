@@ -35,7 +35,8 @@ from uniqa.journey import STEP_SCREENS, render_step
 from uniqa.play import ascii_screen
 from uniqa.psyche import init_mind, step_dynamics, evaluate_bounce
 from uniqa.widget import (render_action_space, legal_events, STEP_ACTIONS,
-                          widget_response_model, ux_complexity)
+                          widget_response_model, ux_complexity, TARIFFS)
+from uniqa.scope import premium as _premium, Tariff as _Tariff
 
 _STEP_BY_VALUE = {s.value: s for s in Step}
 
@@ -152,16 +153,19 @@ _PARAM_LEVELS = [(0.15, "very low"), (0.3, "low"), (0.45, "somewhat low"), (0.6,
 _PARAM_VERB = {"very low": "almost never", "low": "rarely", "somewhat low": "occasionally",
                "moderate": "sometimes", "fairly high": "fairly often", "high": "often",
                "very high": "very often"}
+# FUNDAMENTAL human factors (not synthetic step-sensitivities). A real person has no innate
+# 'price sensitivity at step 6'; price/commitment reactions EMERGE from these + the real price.
 _PARAM_TEXT = {
-    "price_shock_s4": "First-price shock (S4): {lvl} — when the tariff price FIRST appears and it is above what you hoped, you {verb} leave right there (to think / compare / call) instead of continuing.",
+    "budget_pressure": "Budget pressure: {lvl} — a monthly insurance premium {verb} feels like a real strain on your finances; when HIGH, a price at/above what you pictured hits hard.",
+    "value_orientation": "Value scrutiny: {lvl} — you {verb} refuse to pay unless the price clearly matches coverage/value you actually understand; if the value isn't clear, the price feels too high.",
     "complexity_overwhelm": "Complexity overwhelm: {lvl} — too many tariffs, jargon and no clear recommendation {verb} make you give up early (S3 or S4).",
-    "final_price_sensitivity_s6": "Final-price sensitivity (S6): {lvl} — if the final price is higher than the estimate, you {verb} abandon at the very end.",
     "advisor_lean": "Advisor lean: {lvl} — you {verb} prefer to stop the online flow and deal with a real person instead.",
     "patience": "Patience: {lvl} — you {verb} stay patient through long forms; when this is LOW, long forms exhaust you into leaving.",
-    "online_completion": "Online-completion drive: {lvl} — you {verb} push all the way through and finish the purchase online.",
     "ux_willingness": "Willingness to push through heavy UI/UX: {lvl} — you {verb} push through heavy screens (many fields, jargon, many choices); when this is LOW, a heavy screen feels high-effort / low-reward and you subconsciously give up.",
     "comprehension": "Comprehension under load: {lvl} — on dense/jargon screens you {verb} actually absorb what you read; when this is LOW you may stare at the text without grasping it and drift off.",
     "distractibility": "Distractibility: {lvl} — real life (a phone notification, a message, family duties, your surroundings) {verb} pulls you away mid-step; if it does, you may not come back.",
+    "commitment_anxiety": "Commitment anxiety: {lvl} — at the binding moment (entering personal + health data, about to actually buy) you {verb} hesitate, want to be sure, or step back to think / ask someone first.",
+    "uncertainty_aversion": "Uncertainty aversion: {lvl} — an unknown (the price is only 'preliminary' and the binding premium is confirmed later, or an unclear next step) {verb} makes you uneasy enough to pause or leave.",
 }
 
 
@@ -187,12 +191,25 @@ _COGNITIVE_MODEL = {
         "effort_vs_reward": "falls on heavy screens; your `ux_willingness` sets how fast (low willingness → 'too much work for little').",
         "attention": "drifts down over time; your `distractibility` × `session_context` (mobile / commuting / busy surroundings) sets the chance an exogenous interruption knocks it down sharply.",
         "effort_left": "drains with every field and step; your `patience` sets the rate (low patience → drains fast → exhaustion).",
-        "satisfaction": "rises when the screen matches `your_initial_intent`; falls on mismatch — price above hope (per `price_shock_s4` / `final_price_sensitivity_s6`), an advisory wall (per `advisor_lean`), or contradicting info.",
+        "satisfaction": "rises when the screen matches `your_initial_intent`; falls on mismatch.",
     },
+    "price_reaction_rule": (
+        "You have NO innate 'price sensitivity'. When a real price appears (S4 shows "
+        "`real_monthly_eur_for_your_age`), your reaction EMERGES: compare it to what you pictured "
+        "(`session_instance.price_expectation`), weigh how much it strains you (`budget_pressure`), "
+        "and whether the value/coverage is clear enough to justify it (`value_orientation` × your "
+        "current `grasp`). A price above your picture that strains your budget, or whose value you "
+        "can't see, pushes you toward leaving or wanting advice — otherwise it's fine."),
+    "commitment_rule": (
+        "At the binding step (S6: personal + health data, about to buy), reluctance EMERGES from "
+        "`commitment_anxiety` + `uncertainty_aversion` (the price is 'preliminary'; the binding "
+        "premium is confirmed later) + how drained you are (`effort_left`) + `advisor_lean`. There "
+        "is NO price increase here — the final online price equals what you already saw at S4."),
     "decision_rule": (
-        "Leave when a state variable crosses your tolerance, via the feeling that fired. "
-        "`online_completion` is your baseline drive to push through — weigh it against the leave "
-        "pressures. Do NOT continue merely to see what's next."),
+        "Leave when a state variable crosses your tolerance, via the feeling that fired. Your "
+        "`session_instance.visit_goal` (price-check vs research vs ready-to-buy) is your drive to "
+        "push through — a price-checker leaves CONTENT once they see the number (goal_achieved). "
+        "Weigh it against the leave pressures. Do NOT continue merely to see what's next."),
 }
 
 
@@ -220,6 +237,21 @@ def params_block(persona: str) -> str:
 # is the terminal success after S6).
 _INSCOPE_FLOW = [Step.COVERAGE_TYPE, Step.INSURED, Step.PERSONAL_INFO,
                  Step.TARIFF_SELECT, Step.PERSONAL_DATA]
+
+
+def _real_prices_block(step: Step, disposition: dict | None) -> dict:
+    """At the tariff step, show the REAL age-based monthly premium per tariff (recon curve),
+    so the persona reacts to the actual number vs its expectation — no synthetic shock dial."""
+    if step is not Step.TARIFF_SELECT or not disposition or "age" not in disposition:
+        return {}
+    age = disposition["age"]
+    prices = {}
+    for t in TARIFFS:
+        try:
+            prices[t["id"]] = _premium(_Tariff(t["id"]), age)
+        except Exception:
+            pass
+    return {"real_monthly_eur_for_your_age": {"age": age, **prices}}
 
 
 def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str],
@@ -266,7 +298,7 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
         out_schema["state"] = {"attention": "0..1", "satisfaction": "0..1",
                                "effort_left": "0..1", "grasp": "0..1 (how much you actually understood this screen)",
                                "effort_vs_reward": "0..1 (1 = feels worth it, 0 = lots of work for little)"}
-        out_schema["feeling"] = "engaged | distracted | cant_grasp | too_much_effort | dissatisfied"
+        out_schema["feeling"] = "engaged | distracted | cant_grasp | too_much_effort | dissatisfied | goal_achieved"
         if first:
             out_schema["intent"] = "<what info/outcome you came here to reach>"
         rules += [
@@ -282,7 +314,12 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
             "  • 'dissatisfied' — CONSCIOUS: the screen contradicts or undershoots what you came for "
             "(`your_initial_intent`) — price higher than hoped, 'advisory required' when you wanted "
             "online, unexpected/contradicting info — and you decide to close it.",
+            "  • 'goal_achieved' — INTENT-DRIVEN (not friction): if your `visit_goal` was to CHECK / "
+            "COMPARE the price (not buy today), then once you have seen the number at S4 you leave "
+            "CONTENT — you got what you came for. A calm, satisfied exit, not frustration.",
             "  • 'engaged' — it delivers what you expected; continue.",
+            "If `session_instance.familiarity` says you have been here before, you input data "
+            "MECHANICALLY and fast (low dwell, skip reading/tooltips) and beeline to the price.",
             "Update `state` honestly: attention/satisfaction/effort_left/grasp/effort_vs_reward DROP on "
             "heavy screens and as the journey wears on; carry them forward from your_running_state.",
             "Judge the screen against `your_initial_intent`: a mismatch raises your urge to leave.",
@@ -295,6 +332,7 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
         "ui_ascii": ascii_screen(step),
         "action_space": render_action_space(step),
         "ux_complexity_here": ux_complexity(step),
+        **(_real_prices_block(step, disposition) if include_state else {}),
         **({"cognitive_model": _COGNITIVE_MODEL} if include_state else {}),
         "widget_responses_here": wrm["transitions"].get(step.value, {}),
         "conversion_definition": wrm["conversion_definition"],
@@ -618,7 +656,12 @@ def _sample_session_context(persona: str, rng: random.Random) -> dict:
 # 'urgent / prepared-for-premium / can-proceed-alone' Judith converts.
 _INSTANCE_AXES = {
     "time_pressure": ["calm, has time", "mildly busy", "interrupted / rushed"],
-    "purchase_resolve": ["just curious / browsing", "seriously considering", "urgent need now"],
+    "visit_goal": ["just checking / comparing the price (NOT buying today)",
+                   "researching, might buy if it fits",
+                   "seriously considering buying now",
+                   "urgent need, ready to buy"],
+    "familiarity": ["first time on this calculator",
+                    "been here before — knows the steps, inputs mechanically"],
     "price_expectation": ["expects it to be cheap", "flexible on price", "prepared for a premium price"],
     "advisor_need_today": ["wants human reassurance before committing", "happy to proceed alone today"],
     "screening_confidence": ["comfortable with forms/health questions", "a bit uncertain", "anxious about it"],
@@ -633,19 +676,29 @@ _DISP_W = {
         "advisor_need_today": [("wants human reassurance before committing", .65), ("happy to proceed alone today", .35)],
         "price_expectation": [("expects it to be cheap", .2), ("flexible on price", .6), ("prepared for a premium price", .2)],
         "time_pressure": [("calm, has time", .3), ("mildly busy", .45), ("interrupted / rushed", .25)],
+        "visit_goal": [("just checking / comparing the price (NOT buying today)", .35), ("researching, might buy if it fits", .35), ("seriously considering buying now", .2), ("urgent need, ready to buy", .1)],
+        "familiarity": [("first time on this calculator", .6), ("been here before — knows the steps, inputs mechanically", .4)],
     },
     "franz": {
         "advisor_need_today": [("happy to proceed alone today", .9), ("wants human reassurance before committing", .1)],
         "price_expectation": [("expects it to be cheap", .45), ("flexible on price", .5), ("prepared for a premium price", .05)],
-        "purchase_resolve": [("just curious / browsing", .2), ("seriously considering", .55), ("urgent need now", .25)],
+        "visit_goal": [("just checking / comparing the price (NOT buying today)", .35), ("researching, might buy if it fits", .25), ("seriously considering buying now", .25), ("urgent need, ready to buy", .15)],
+        "familiarity": [("first time on this calculator", .5), ("been here before — knows the steps, inputs mechanically", .5)],
         "screening_confidence": [("comfortable with forms/health questions", .7), ("a bit uncertain", .25), ("anxious about it", .05)],
     },
     "peter": {
         "advisor_need_today": [("wants human reassurance before committing", .8), ("happy to proceed alone today", .2)],
         "screening_confidence": [("comfortable with forms/health questions", .1), ("a bit uncertain", .4), ("anxious about it", .5)],
         "price_expectation": [("expects it to be cheap", .55), ("flexible on price", .4), ("prepared for a premium price", .05)],
+        "visit_goal": [("just checking / comparing the price (NOT buying today)", .3), ("researching, might buy if it fits", .35), ("seriously considering buying now", .25), ("urgent need, ready to buy", .1)],
+        "familiarity": [("first time on this calculator", .7), ("been here before — knows the steps, inputs mechanically", .3)],
     },
 }
+
+
+# Persona-anchored age (drives the REAL price via scope.premium). Judith~43, Franz~40,
+# Peter~35, with realistic spread; clamped to the calculator's 19–72 working range.
+_AGE_ANCHOR = {"judith": 43, "franz": 40, "peter": 35}
 
 
 def _sample_disposition(persona: str, rng: random.Random) -> dict:
@@ -653,6 +706,7 @@ def _sample_disposition(persona: str, rng: random.Random) -> dict:
     out = {}
     for axis, opts in _INSTANCE_AXES.items():
         out[axis] = _weighted(rng, w[axis]) if axis in w else rng.choice(opts)
+    out["age"] = max(19, min(72, round(_AGE_ANCHOR.get(persona, 40) + rng.gauss(0, 9))))
     return out
 
 

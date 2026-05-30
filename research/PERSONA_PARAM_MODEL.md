@@ -232,6 +232,42 @@ Judith & Peter** (Judith conv → .10/.09, S3 ✓; Peter S3 → .27/.25 ✓ in o
 high-variance and **Franz over-converts (0.63)** because the **S6 final-price jump is never
 injected** — the LLM keeps the final price = estimate, so Franz's defining churn cannot fire.
 
+## 5f. Fundamental-factor decomposition (replaces synthetic step-sensitivities)
+
+Real people don't carry an innate "price sensitivity at step 4/6". Those synthetic dials
+(`price_shock_s4`, `final_price_sensitivity_s6`, `online_completion`) are **removed**; step
+behaviour now EMERGES from fundamental factors × the real price.
+
+**STATIC traits (10 fundamental dials):** `budget_pressure`, `value_orientation` (← grounded
+in income/spend + decision_drivers price_performance), `complexity_overwhelm`, `advisor_lean`
+(← channel data), `patience`, `ux_willingness`, `comprehension`, `distractibility`,
+`commitment_anxiety`, `uncertainty_aversion`.
+
+**Per-session LATENT instance** (sampled, persona-weighted): `time_pressure`, **`visit_goal`**
+(price-check / research / serious / ready-to-buy), **`familiarity`** (first-time vs returning),
+`price_expectation`, `advisor_need_today`, `screening_confidence`, **`age`** (→ real price via
+`scope.premium`), device, surroundings.
+
+**Emergent reactions** (in `cognitive_model`):
+- **S4 price**: `real_monthly_eur_for_your_age` (shown to the model) vs `price_expectation`,
+  weighted by `budget_pressure` and `value_orientation × grasp`. No shock dial.
+- **S6 commitment**: `commitment_anxiety` + `uncertainty_aversion` (price is "preliminary";
+  binding premium confirmed offline) + `effort_left` + `advisor_lean`. No price jump.
+
+**The S4 drop now decomposes** into: price-above-expectation×budget×value · complexity-overwhelm ·
+advisor-lean · **`goal_achieved`** (returning **price-checkers** who came to compare the number,
+not buy — they leave CONTENT once they see it, a calm intent-driven exit, not friction).
+Validated (N=20, gpt-4o-mini): ε=0.13, goal_achieved exits prominent and on-character.
+
+### Coach opportunity — the price-checker is a lead, not a lost sale
+`goal_achieved` / `visit_goal=price-check` / fast-mechanical-returning navigation is a
+**detectable signal**, and forcing an immediate online purchase is the wrong move. The coach
+should instead: **capture contact** (email/WhatsApp for the quote), route to a **nurture /
+free-value** track (send the comparison, a savings explainer, a reminder), or offer an
+**alternate conversion path** (callback, save-and-resume) — warming them toward a later
+conversion. This is the highest-value intervention class for the ~66% S4 drop and belongs in
+the coach overlay's decision policy (detect price-checker → SAVE_PROGRESS / CALLBACK / nurture).
+
 ## 6. STATUS & DECISION POINT
 
 **`persona llm-agent` = NOT locked (in progress).** The model produces behaviourally correct,

@@ -30,10 +30,11 @@ from research.run import generate, validate, PERSONAS
 
 _PARAM_DIR = Path(__file__).resolve().parents[1] / "prompts" / "personas"
 # cell → [(dial, signed weight)]  (too-HIGH bounce, e>0, moves each dial by sign*w*k*e)
+# Fundamental-factor mapping (S4/S6 reactions emerge from these, not synthetic sensitivities).
 BOUNCE_DIALS = {
     "S3_PERSONAL_INFO": [("complexity_overwhelm", -1.0), ("ux_willingness", +0.5)],
-    "S4_TARIFF_SELECT": [("price_shock_s4", -1.0), ("advisor_lean", -0.5)],
-    "S6_PERSONAL_DATA": [("final_price_sensitivity_s6", -1.0)],
+    "S4_TARIFF_SELECT": [("budget_pressure", -0.7), ("value_orientation", -0.5), ("advisor_lean", -0.5)],
+    "S6_PERSONAL_DATA": [("commitment_anxiety", -1.0), ("uncertainty_aversion", -0.5)],
 }
 CELL_TOL = 0.08
 CONV_TOL = 0.04
@@ -73,8 +74,8 @@ def propose(prep: dict, k: float = 0.22) -> dict:    # damped (codex P2: k=0.15�
     # conversion
     ce = prep["conv_rate"] - prep["conv_target"]  # >0 = converts too much
     if abs(ce) > CONV_TOL:
-        bump("online_completion", -0.8 * ce)      # too high → lower completion drive
-        bump("advisor_lean", 0.5 * ce)            # too high → lean harder to advisor
+        bump("advisor_lean", 0.5 * ce)            # too high → lean harder to advisor (fewer convert)
+        bump("commitment_anxiety", 0.4 * ce)      # too high → more last-step hesitation
     return upd
 
 
