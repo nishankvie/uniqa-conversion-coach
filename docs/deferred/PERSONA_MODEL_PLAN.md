@@ -1,6 +1,6 @@
 # Sub-plan: the Persona Model
 
-> **DEFERRED.** The current plan is [`PIPELINE_PLAN.md`](PIPELINE_PLAN.md) — personas
+> **DEFERRED.** The current plan is [`PIPELINE_PLAN.md`](../PIPELINE_PLAN.md) — personas
 > stay **LLM-driven** for now (no local fine-tune). This doc is the **deferred**
 > "go fully local" build-plan + assumptions register for when we train a local
 > persona model (PIPELINE_PLAN §9).

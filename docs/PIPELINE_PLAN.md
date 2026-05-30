@@ -7,9 +7,11 @@
 > feedback form, survey) and wire the **outer feedback loop** (periodic model
 > re-evals/updates from production logs).
 >
-> **Deferred (explicitly out of scope now):** fine-tuning local persona/coach models
-> (MiniCPM5-1B / tiny-TLM). That "go fully local" path is preserved in §9 +
-> `PERSONA_TLM_DESIGN.md` / `PERSONA_MODEL_PLAN.md` / `TLM_RESEARCH.md` for later.
+> **The coach is the training subject.** After the prompt is Z3-certified we **fine-tune
+> a 1B model (MiniCPM5-1B, LoRA) as the coach on CINECA Leonardo** — input = current
+> session logs, output = reasoning + action log (§5.1). This is where the HPC budget is
+> spent. **Persona** stays LLM-driven; its local fine-tune is **deferred** (§9 +
+> `deferred/PERSONA_TLM_DESIGN.md` / `deferred/PERSONA_MODEL_PLAN.md` / `deferred/TLM_RESEARCH.md`).
 >
 > Grounded in code that exists: `sim.py` (Protocol loop), `widget.py` (static widget +
 > action space), `persona_datagen.py` (OpenRouter persona/teacher), `contracts.py`
@@ -47,8 +49,9 @@ optimization, not a prerequisite.
    re-fit persona priors, off-policy eval the            move actions — importance weighting
    coach (IPS), re-run Stage 3 → Z3 gate → ship.         (§"features").
         │
-        └───▶ STAGE 6 (DEFERRED) ─ GO FULLY LOCAL: fine-tune persona + coach to drop the
-              LLM (MiniCPM5-1B LoRA). Plan preserved in §9. Not required to ship the above.
+        └───▶ STAGE 6 ─ FINE-TUNE THE COACH (Leonardo, ACTIVE): distill the Z3-certified
+              coach into a 1B LoRA (MiniCPM5-1B). in = session logs → out = reasoning +
+              action log. Runs local in prod. [Persona fine-tune stays DEFERRED, §9.]
 ```
 
 **Stage notes:**
@@ -66,7 +69,9 @@ optimization, not a prerequisite.
 4. **Prod deploy + outer loop (Loop B).** Real logs periodically re-fit personas +
    re-eval the coach, then re-run Stage 3 (§"outer loop").
 5. **Features + importance weighting** (§"features").
-6. **Go fully local — DEFERRED** (§9): fine-tune persona + coach to drop the LLM.
+6. **Fine-tune the coach on Leonardo — ACTIVE** (§5.1): distill the Z3-certified coach
+   into a 1B LoRA (session logs → reasoning + action log); it runs local in prod. The
+   *persona* local fine-tune stays deferred (§9).
 
 ---
 
@@ -227,6 +232,41 @@ REPEAT
 - **Demo deliverable:** show a before/after coach prompt where Loop A found a real,
   Z3-certified uplift (e.g. moving Peter's callback to a WhatsApp surface *before* S4).
 
+### 5.1 Coach fine-tune — MiniCPM5-1B on Leonardo (the HPC step)
+
+Once the coach *prompt* is Z3-certified, **distill it into a local 1B model** so the
+coach runs on our own GPU in prod (cheap, low-latency, private) — and so the project
+actually uses the Leonardo allocation. **The coach, not the persona, is the model we
+train.**
+
+```
+model:  openbmb/MiniCPM5-1B  (standard LlamaForCausalLM, LoRA r=16, bf16+FA2)
+INPUT:  current session logs  — CoachObservation JSON (activity window, form_state,
+        budget, surface availability).  NO persona label, NO health (S6) data.
+OUTPUT: reasoning + action log — CoachDecision JSON:
+          { reasoning: "...",                 # human-readable chain (the 'reasoning')
+            command: {effector, surface, target, payload},   # the action ('log')
+            hypotheses: [...], value_estimate }
+loss:   completion-only on the decision JSON (reasoning + command).
+data:   traces of the Z3-certified prompt (the OpenRouter coach) over the sim
+        (obs → reasoning+decision) + RuleCoachModel traces. ~10–30k pairs.
+```
+
+- **Leonardo job:** 1×A100 64GB, partition `boost_usr_prod`, reservation `s_tra_ncc`
+  (account `euhpc_d30_031`, **window ends 2026-05-31 12:00**). Pre-stage MiniCPM weights
+  + the trace dataset on a login node (compute nodes have **no internet**); LoRA SFT
+  ~1–1.5h. Artifacts: `coach_lora/`, `eval_report.json`. Laptop MLX 4-bit fallback if
+  the window closes.
+- **Eval gates:** G0 JSON validity (decision parses + `EffectorCommand.validate()`
+  passes) ≥ 98%; agreement with the teacher's decisions on held-out obs; and — the gate
+  that matters — **sim uplift of the FT coach ≥ the prompt's uplift** (distillation must
+  not regress the Z3-certified behaviour).
+- **Drop-in:** the FT coach replaces `RuleCoachModel.decide(obs)` behind `CoachModel`
+  (`coach_io.py`) — zero contract change. Personas stay LLM-driven at sim time.
+- **Why the coach (not the persona):** the coach is the shipped product; making *it*
+  local gives real-time prod inference + the HPC story. Personas are only needed at sim
+  time, so they stay on the LLM and don't need a GPU.
+
 ---
 
 ## 6. Outer feedback loop (Loop B) — periodic re-eval/update from prod logs
@@ -286,7 +326,7 @@ p_identify ∈ [0,1]   (simulation parameter, swept)
 
 `personas.json` carries far more than behaviour: income, NPS, KV ownership, purchase
 intent, switch willingness, products owned, online-share, channel preference, age
-(see `PERSONA_MODEL_PLAN.md` data provenance). Two consumers: the LLM-persona prompt
+(see `deferred/PERSONA_MODEL_PLAN.md` data provenance). Two consumers: the LLM-persona prompt
 (conditioning) and the coach's identifier (§7). Open question: *lifestyle data may or
 may not affect on-page actions.* So weight by measured effect.
 
@@ -306,30 +346,30 @@ gate; else pin to ~0 (de-risks leaning on spurious demographics). Emit
 
 ---
 
-## 9. DEFERRED — go fully local (fine-tune persona + coach)
+## 9. DEFERRED — local PERSONA fine-tune
 
-Not this round. When we want to drop the LLM and run on our own GPU:
+The **coach** fine-tune is active (§5.1). The **persona** local fine-tune is the part
+that stays deferred: distill the OpenRouter teacher into a LoRA **MiniCPM5-1B** persona
+that emits the same JSON sessions, then drop the teacher. Feasibility (1×A100,
+no-internet staging, reservation window), the tiny-TLM alternative, and the calibration
+→ Z3 `b` connection are preserved in `deferred/PERSONA_TLM_DESIGN.md` /
+`deferred/PERSONA_MODEL_PLAN.md` / `deferred/TLM_RESEARCH.md`.
 
-- **Persona:** distill the OpenRouter teacher into a LoRA **MiniCPM5-1B** that emits the
-  same JSON sessions; then drop the teacher. Feasibility (1×A100, no-internet staging,
-  reservation window) and recipe are preserved in git history + `PERSONA_TLM_DESIGN.md`
-  / `PERSONA_MODEL_PLAN.md` / `TLM_RESEARCH.md`.
-- **Coach:** a second LoRA adapter that emits `CoachDecision` JSON (incl. `surface`),
-  distilled from the Z3-certified prompt's traces.
-- **Why deferred:** the LLM-driven pipeline already proves the protocol (Stage 3 + Z3)
-  and the generalization (multi-surface + Loop B). Local models are a cost/latency
-  optimization, not a correctness requirement — do them once the pipeline is shippable.
+**Why deferred:** personas are only needed at *sim* time, so the LLM is fine; a local
+persona is a cost optimization, not a correctness requirement. The coach is the product
+that ships to prod, so the coach is what we make local first (§5.1).
 
 ---
 
 ## NOT in scope (now) / What already exists
 
-**NOT now:** local fine-tune (persona or coach) §9 · trained/generative widget (the
-*interface* is uniform, the producer stays static) · multimodal persona · deposit-first
-/ eID structural funnel changes (pitch only, see `FUNNEL_AUTOPSY.md`).
+**NOT now:** local *persona* fine-tune (§9; the *coach* fine-tune IS active, §5.1) ·
+trained/generative widget (the *interface* is uniform, the producer stays static) ·
+multimodal persona · deposit-first / eID structural funnel changes (pitch only, see
+`FUNNEL_AUTOPSY.md`).
 
 **Reuse, don't rebuild:** `sim.py` Protocol loop (persona ↔ surface ↔ coach) ·
 `widget.py` action space + reactive signals · `persona_datagen.py` OpenRouter persona +
 schema gate · `contracts.py` JSON I/O · `psyche.py` calibrated floor + `b`-anchor ·
 `autoresearch.py` + `specs/z3/coach_autoimprove.py` (Loop A + certificate) ·
-`leonardo-connect` skill (for the deferred local jobs).
+`leonardo-connect` skill (SSH + SLURM templates for the §5.1 coach job).

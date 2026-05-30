@@ -1,64 +1,104 @@
-# 🧭 UNIQA Conversion Coach
+# UNIQA Conversion Coach
 
-> **Zero One Hack — Vienna · Insurance / UNIQA track.**
-> A detection + decision layer on top of UNIQA's *existing* health-insurance
-> calculator chatbot. It reads the customer's mind, intervenes only when it
-> helps, and **proves its lift with synthetic persona simulation** — then
-> improves itself automatically through a formally-certified autoresearch loop.
+A detection-and-decision layer that sits on top of UNIQA's existing online
+health-insurance calculator. It reads behavioural signals during the funnel,
+intervenes only when an intervention is likely to help, and chooses the right
+surface to do it on (in-page widget, email, WhatsApp, and more). The policy
+improves itself against a persona simulator, and every accepted change is gated
+by a formal proof of non-regression.
 
----
-
-## The challenge (one sentence)
-
-> Build a Conversion Coach that detects when users are about to abandon UNIQA's
-> health-insurance calculator and intervenes in real time — then prove it works
-> using synthetic persona simulations.
-
-**Conversion = online purchase completion** (Start or Optimal tariff). Advisor
-handoff is a clean exit, *not* a conversion. The Coach only helps users who
-*can* finish online actually finish.
+The calculator is not rebuilt. The Coach is a separate layer that observes the
+user's activity log and issues bounded, auditable actions over a fixed contract.
 
 ---
 
-## The idea in three moves
+## Overview
 
-1. **The chatbot already exists.** We do not rebuild it. The Coach sits *on top*
-   — pure **detection + decision**: read hesitation signals → decide whether/what
-   to intervene with → respect a strict annoyance budget.
-2. **Prove it in simulation.** A psyche-driven persona model (Judith / Franz /
-   Peter) generates realistic synthetic journeys. A Monte-Carlo A/B harness
-   measures conversion uplift, persona differentiation, and intervention quality.
-3. **Let it improve itself.** An **autoresearch loop** tunes the Coach policy
-   against the simulator and ships only changes a **Z3 proof** certifies as real,
-   monotone improvements — *given* the persona model is statistically faithful.
+- **Conversion** is defined as online purchase completion of an in-scope tariff
+  (Start or Optimal, private-doctor, "myself"). Routing to an advisor is a clean
+  exit, not a conversion. The Coach only assists users who can complete online.
+- **The Coach is detection + decision only.** It reads hesitation signals, infers
+  the likely customer segment, and decides whether/what/where to intervene under a
+  strict annoyance budget. It never alters the data the calculator collects.
+- **It is validated in simulation before it ever touches a customer.** A persona
+  simulator (three research-backed segments) generates realistic journeys; a
+  Monte-Carlo A/B harness measures uplift, per-segment differentiation, and
+  intervention quality.
 
 ---
 
-## Headline numbers (synthetic A/B, N = 4 000, seed 42)
+## How it works
 
-| Metric | Coach OFF | Coach ON |
+Three models exchange JSON over one contract (`src/uniqa/contracts.py`); each is
+swappable behind a Protocol (`src/uniqa/sim.py`):
+
+```
+   PERSONA MODEL  ──user events──▶   SURFACE MODEL (the env)  ──signals──▶  PERSONA
+   (LLM-driven:                      static UNIQA funnel screens,                │
+    Judith / Franz / Peter)          one uniform interface across               │ activity log
+        ▲                            on-page / email / WhatsApp / …             ▼
+        └────────────────────────────  COACH MODEL  ◀──────────  observation → decision
+                                        (intent × surface, bounded, auditable)
+```
+
+- **Persona model** — currently LLM-driven (the customer simulator); calibrated
+  against published funnel anchors via a latent-state baseline (`psyche.py`).
+- **Surface model** — the environment. The static funnel is one implementation of a
+  uniform interface; alternative surfaces (email, WhatsApp bot, landing page,
+  feedback form/survey) implement the same interface, so the Coach can land a user
+  wherever conversion is most likely.
+- **Coach model** — the product. Observes the activity log only (no persona label,
+  no health data), infers the segment, and returns a typed action plus
+  human-readable reasoning and falsifiable hypotheses.
+
+The full design is in [`docs/PIPELINE_PLAN.md`](docs/PIPELINE_PLAN.md).
+
+---
+
+## Self-improvement, proven safe
+
+The Coach policy lives in a prompt. An autoresearch loop proposes prompt/policy
+changes, evaluates them against the persona simulator with paired A/B sampling, and
+accepts a change only if a Z3 proof certifies it is a real improvement:
+
+> If the simulator is within a measured fidelity budget of reality
+> (`|U_sim − U_real| ≤ b`) and the acceptance margin satisfies `τ ≥ 2b`, then every
+> accepted policy is a real improvement, real conversion is monotonically
+> non-decreasing, and the loop converges.
+
+`specs/z3/coach_autoimprove.py` discharges five theorems (soundness, no-regression,
+monotonicity, termination, and tightness of the `τ ≥ 2b` bound). An outer feedback
+loop re-grounds the simulator on production logs on each release, keeping `b` small
+so the guarantee holds. Details: [`docs/AUTORESEARCH.md`](docs/AUTORESEARCH.md).
+
+Once a policy is certified, the Coach is distilled into a **local 1B model
+(MiniCPM5-1B, LoRA) fine-tuned on the CINECA Leonardo cluster** — input is the
+current session log, output is the reasoning plus the action. This gives
+low-latency, private, on-premise inference in production. (Persona models stay
+LLM-driven; their local fine-tune is deferred.)
+
+---
+
+## Simulation results
+
+Monte-Carlo A/B over the persona simulator (N = 4000, fixed seed). These are
+simulated outcomes used to size and de-risk the policy before any live test.
+
+| Metric | Coach off | Coach on |
 |---|---|---|
-| Overall conversion | **5.65 %** | **14.5 %**  (+157 %) |
-| Purchase-intent cohort (coachable) | ~13 % | **~28 %** |
-| WhatsApp leads recovered (Peter) | 0 | ~790 |
-| Avg interventions / session | 0 | **1.23** (budget = 3) |
+| Overall online conversion | 5.6% | 14.5% |
+| Purchase-intent cohort (coachable) | ~13% | ~28% |
+| Avg. interventions per session | 0 | 1.2 (budget 3) |
 
-Calibration anchors held: baseline ≈ 5.6 %, Step-4 drop ≈ 66 %, Step-5 ≈ 24 %,
-Step-6 ≈ 78 %.
+Calibration anchors held throughout (baseline ≈ 5.6%; step drop-offs ≈ 66% / 24% /
+78%). Uncoachable bounces (genuinely not-ready, distracted) are deliberately left
+alone — that restraint is part of the intervention-quality story.
 
-> **Honest framing.** We report overall uplift *and* the coachable cohort.
-> `not_ready` / `distraction` bounces are deliberately left alone — that
-> restraint *is* the intervention-quality story.
-
----
-
-## The three personas
-
-| Persona | Share | Profile | Coach strategy |
+| Segment | Share | Profile | Coach strategy |
 |---|---|---|---|
-| **Judith** — Rising Hybrid | 30 % | Trusts advisors, moderate price comfort | Reassure, price-reframe, graceful advisor option |
-| **Franz** — Online Affine | 50 % | High comprehension, low patience, **online-only** | Remove Premium-needs-advisor confusion. **Never** hand to advisor (hard constraint) |
-| **Peter** — Service Affine | 20 % | Wants human contact | Offer callback *before* the price wall → WhatsApp recovery |
+| Judith — Rising Hybrid | 30% | Trusts advisors, moderate price sensitivity | Reassure, reframe price, offer a graceful advisor path |
+| Franz — Online Affine | 50% | High comprehension, low patience, online-only | Remove advisory-tariff confusion; never route to an advisor |
+| Peter — Service Affine | 20% | Prefers human contact | Offer a callback before the price wall (WhatsApp recovery) |
 
 ---
 
@@ -66,38 +106,22 @@ Step-6 ≈ 78 %.
 
 ```
 .
-├── README.md                     ← you are here
-├── pyproject.toml                ← src-layout package (uniqa-coach)
+├── README.md
+├── pyproject.toml                  src-layout package (uniqa-coach)
 ├── src/uniqa/
-│   ├── funnel.py                 ← funnel state machine + hesitation signals
-│   ├── scope.py                  ← in-scope funnel + form logic registry
-│   ├── coach.py                  ← Coach policy: 12 actions, decision tree, hard gates, widget copy
-│   ├── psyche.py                 ← persona MIND model (6 latent vars, intent mix, hazard bounce)
-│   ├── personas.py               ← rule-based + LLM persona drivers, session runner
-│   ├── contracts.py              ← JSON contracts: events, effectors+guardrails, Coach I/O, envelopes
-│   ├── coach_io.py               ← psyche signals → activity log → observation → decision adapter
-│   ├── journey.py                ← composable token harness (demo + batch) + JSON-render twin
-│   ├── eventproc.py              ← event post-processing
-│   ├── tlm.py                    ← trajectory-token space (VOCAB / encode / decode)
-│   ├── widget.py                 ← per-step action spaces + json-render widget twin
-│   ├── play.py                   ← human-playable journey (ASCII screens)
-│   ├── persona_datagen.py        ← persona data-gen pipeline + LLM teacher + ε measurement
-│   ├── sim.py                    ← turn-based simulator (App↔Coach↔persona, both flows)
-│   ├── simulation.py             ← Monte-Carlo A/B + uplift report
-│   ├── autoresearch.py           ← self-improving loop (propose → eval → gate → accept)
-│   ├── app.py                    ← Streamlit demo (Live journey + A/B uplift)
-│   └── tests/                    ← 93 tests (calibration, constraints, uplift, autoresearch, Z3)
-├── specs/z3/coach_autoimprove.py ← Z3 proof the autoresearch loop self-improves (T1–T5)
-└── docs/
-    ├── ARCHITECTURE.md           ← App/Coach split, contracts, dual learning loop, UI tokens
-    ├── AUTORESEARCH.md           ← self-improving Coach: loop, assumption A1, certificate
-    ├── PSYCHE_WALKTHROUGH.md     ← first-person trace of the real screenshotted funnel
-    ├── FUNNEL_AUTOPSY.md         ← screen-by-screen drop-off analysis
-    ├── PIPELINE_PLAN.md          ← MASTER PLAN: LLM personas, coach autoimprove+Z3, multi-surface, outer loop
-    ├── PERSONA_MODEL_PLAN.md     ← (deferred) local persona model build plan + data provenance
-    ├── PERSONA_TLM_DESIGN.md     ← (deferred) tiny-TLM design + Z3 calibration anchor
-    ├── TLM_RESEARCH.md           ← (deferred) trajectory-language-model prior art + feasibility
-    └── RESEARCH_insurance_conversion.md  ← conversion-optimization research brief
+│   ├── contracts.py                JSON contract: events, effectors, Coach I/O, render envelopes
+│   ├── funnel.py · scope.py        funnel state machine + in-scope guard
+│   ├── widget.py                   static funnel screens + closed per-step action space
+│   ├── psyche.py                   latent-state persona baseline (calibration / volume floor)
+│   ├── personas.py · persona_datagen.py   LLM-driven personas (OpenRouter)
+│   ├── sim.py                      turn-based simulator (persona ↔ surface ↔ coach)
+│   ├── coach.py · coach_io.py      Coach policy + observation/decision adapter
+│   ├── autoresearch.py             self-improvement loop (propose → evaluate → gate)
+│   ├── simulation.py               Monte-Carlo A/B + uplift report
+│   ├── app.py                      Streamlit demo
+│   └── tests/                      93 tests (calibration, constraints, uplift, autoresearch, Z3)
+├── specs/z3/coach_autoimprove.py   the Z3 certificate
+└── docs/                           see Documentation below
 ```
 
 ---
@@ -108,68 +132,28 @@ Step-6 ≈ 78 %.
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-# tests (incl. the Z3 certificate)
-pytest -q                                   # 93 passed
-
-# A/B simulation
-python -m uniqa.journey -n 4000             # baseline vs coach uplift report
-python -m uniqa.journey --trace             # one demo journey, token by token
-
-# live demo
-streamlit run src/uniqa/app.py              # Live journey + A/B uplift dashboards
-
-# self-improving loop + proof
-python -m uniqa.autoresearch --rounds 30    # gated hill-climb on synthetic data
-python specs/z3/coach_autoimprove.py        # ALL THEOREMS DISCHARGED ✅
+pytest -q                                 # full suite incl. the Z3 certificate
+python -m uniqa.journey -n 4000           # baseline vs Coach A/B uplift report
+python -m uniqa.autoresearch --rounds 30  # gated self-improvement on the simulator
+python specs/z3/coach_autoimprove.py      # discharge the proof
+streamlit run src/uniqa/app.py            # interactive demo (journey + A/B dashboards)
 ```
 
 ---
 
-## Self-improving Coach (the differentiator)
+## Documentation
 
-The Coach tunes itself without ever experimenting on live customers:
-
-```
-PROPOSE → SIMULATE (psyche) → EVALUATE (paired A/B) → GATE (accept iff Δuplift > τ) → REPEAT
-```
-
-**Central claim** (proved in `specs/z3/coach_autoimprove.py`):
-
-> *If the persona model is statistically close to reality
-> (estimator bias `|U_sim − U_real| ≤ b = L·ε`), and the acceptance margin
-> satisfies `τ ≥ 2b`, then every accepted policy is a **real** improvement, the
-> Coach's real conversion is **monotonically non-decreasing**, and the loop
-> **converges**.*
-
-Z3 discharges five theorems: **soundness**, **no-regression**, **monotonicity**,
-**termination**, and **tightness** (the `τ ≥ 2b` bound is necessary). The whole
-problem reduces to one measurable condition — *model fidelity (A1)*. Make the
-simulator faithful and the optimisation is provably safe. Full write-up:
-[`docs/AUTORESEARCH.md`](docs/AUTORESEARCH.md).
-
----
-
-## How we're judged (and where we score)
-
-| Jury dimension | Our evidence |
+| Document | Contents |
 |---|---|
-| **Conversion uplift** | +157 % overall / 13 %→28 % coachable, paired A/B, deterministic |
-| **Persona differentiation** | distinct policies + outcomes per persona; Franz never-advisor hard gate |
-| **Intervention quality** | ≤ 3 messages, ~1.23 avg, uncoachable bounces left alone, annoyance guardrail |
+| [`docs/PIPELINE_PLAN.md`](docs/PIPELINE_PLAN.md) | The master plan: LLM personas, multi-surface coach, prompt autoimprovement + Z3, the coach 1B fine-tune (Leonardo), and the outer loop. |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | App/Coach split, the JSON contract, and the dual learning loop. |
+| [`docs/AUTORESEARCH.md`](docs/AUTORESEARCH.md) | The self-improvement loop and the formal certificate. |
+| [`docs/FUNNEL_AUTOPSY.md`](docs/FUNNEL_AUTOPSY.md) | The real funnel, screen by screen, and where users drop off. |
+| [`docs/PSYCHE_WALKTHROUGH.md`](docs/PSYCHE_WALKTHROUGH.md) | First-person trace of the funnel grounding the persona model. |
+| [`docs/RESEARCH_insurance_conversion.md`](docs/RESEARCH_insurance_conversion.md) | Conversion-optimization research brief. |
+| [`docs/deferred/`](docs/deferred/) | Deferred work (local persona models, trajectory-model design). Not needed to understand the current system. |
 
 ---
 
-## Status (hackathon, Day 2)
-
-- ✅ Funnel state machine, Coach policy, psyche persona model — calibrated to anchors
-- ✅ Composable journey-token harness (demo + batch) with JSON-render twin
-- ✅ Monte-Carlo A/B simulation + uplift report
-- ✅ Streamlit demo — Live journey (mind HUD, widgets, WhatsApp) + A/B dashboards
-- ✅ Self-improving autoresearch loop + **Z3 certificate (5 theorems)**
-- ✅ 93 tests passing
-- ▢ Roadmap: fidelity dashboard (live ε), richer policy space, LLM-proposed experiments, shadow deployment (see `docs/AUTORESEARCH.md`)
-
----
-
-*Built at Zero One Hack, Vienna. Synthetic-data-only — no live customer
-experimentation. Conversion defined per the track's online-completion scope.*
+*Synthetic-data-only validation — no live customer experimentation. Conversion is
+defined per the track's online-completion scope.*

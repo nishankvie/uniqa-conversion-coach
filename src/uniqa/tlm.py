@@ -22,7 +22,7 @@ Vocabulary (small, ~120 tokens) =
 
 `encode()` turns an ActivityLog (+ optional persona / coach actions) into ids;
 `decode()` inverts. Sequences are short (≤ a few hundred tokens), so a tiny GPT
-is enough — see docs/TLM_RESEARCH.md for the feasibility math.
+is enough — see docs/deferred/TLM_RESEARCH.md for the feasibility math.
 """
 
 from __future__ import annotations
@@ -136,7 +136,7 @@ def decode(ids: list[int]) -> list[str]:
 
 @dataclass
 class TLMConfig:
-    """Reference config for the tiny TLM (see docs/TLM_RESEARCH.md)."""
+    """Reference config for the tiny TLM (see docs/deferred/TLM_RESEARCH.md)."""
     vocab_size: int = len(VOCAB)
     n_layer:    int = 4
     n_head:     int = 4

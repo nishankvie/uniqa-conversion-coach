@@ -1,5 +1,5 @@
 """
-Persona data-gen harness — the A1 probe (PERSONA_MODEL_PLAN §7 step 1).
+Persona data-gen harness — the A1 probe (docs/deferred/PERSONA_MODEL_PLAN.md §7 step 1).
 
 Goal: cheaply test assumption A1 (LLM-teacher feeds ≈ real user behaviour) BEFORE
 any GPU. We:

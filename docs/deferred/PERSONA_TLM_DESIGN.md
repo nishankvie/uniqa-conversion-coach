@@ -1,7 +1,7 @@
 # PERSONA-TLM — model design, proof, calibration
 
 > **Role: DEFERRED (go-local path).** The current plan is
-> [`PIPELINE_PLAN.md`](PIPELINE_PLAN.md) — personas stay **LLM-driven** for now,
+> [`PIPELINE_PLAN.md`](../PIPELINE_PLAN.md) — personas stay **LLM-driven** for now,
 > no local fine-tune. This tiny from-scratch TLM is kept for the deferred
 > "go fully local" stage (PIPELINE_PLAN §9); it is also the *calibratable* model
 > that pins the Z3 safety budget `b = ε_anchor` (§3.4) when we get there.
