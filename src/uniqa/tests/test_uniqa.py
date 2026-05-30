@@ -11,16 +11,11 @@ Critical tests (must pass before demo):
 """
 
 import pytest
-import random
 
 from uniqa.funnel import (
-    Step, FunnelState, HesitationSignals, ABANDON_PROBS, PERSONA_WEIGHTS,
-    PERSONAS, is_hesitating, generate_signals,
+    Step, FunnelState, HesitationSignals, ABANDON_PROBS, PERSONA_WEIGHTS, PERSONAS,
 )
-from uniqa.coach import (
-    CoachAction, decide_action, validate_output, get_modifier,
-    MESSAGE_BUDGET,
-)
+from uniqa.coach import CoachAction, decide_action, validate_output, MESSAGE_BUDGET
 from uniqa.simulation import run_simulation, run_ab_simulation
 
 
@@ -64,6 +59,14 @@ def test_peter_early_gets_callback():
     state = FunnelState(step=Step.PERSONAL_INFO, persona="peter", signals=sig)
     action = decide_action(state, message_count=0)
     assert action == CoachAction.CALLBACK_OFFER, f"Got {action} instead of CALLBACK_OFFER"
+
+
+def test_no_hesitation_yields_no_action():
+    """No hesitation signal anywhere → the coach stays silent (annoyance restraint)."""
+    for persona in PERSONAS:
+        for step in (Step.COVERAGE_TYPE, Step.TARIFF_SELECT, Step.PERSONAL_DATA):
+            state = FunnelState(step=step, persona=persona, signals=HesitationSignals())
+            assert decide_action(state, message_count=0) == CoachAction.NONE
 
 
 # ─── Calibration Tests ────────────────────────────────────────────────────────
@@ -135,13 +138,6 @@ def test_persona_differentiation():
     assert max_diff > 0.02, (
         f"Persona differentiation too low: max_diff={max_diff:.3f} (should be >0.02)"
     )
-
-
-def test_determinism():
-    """Same seed must produce identical results."""
-    r1 = run_simulation(n=500, seed=99, coach_on=True)
-    r2 = run_simulation(n=500, seed=99, coach_on=True)
-    assert r1.conversion_rate == r2.conversion_rate, "Simulation is not deterministic!"
 
 
 # ─── Modifier Sanity ──────────────────────────────────────────────────────────

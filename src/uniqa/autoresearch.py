@@ -11,7 +11,7 @@ The Coach improves itself without touching production traffic:
     │  5. REPEAT    accepted policy becomes the new incumbent       │
     └─────────────────────────────────────────────────────────────┘
 
-Central claim (proved in specs/z3/coach_autoimprove.py):
+Central claim (proved in specs/deferred/coach_autoimprove_z3.py):
 
     IF the persona model is statistically close to reality
        (estimator bias |U_sim − U_real| ≤ L·ε),

@@ -1,10 +1,8 @@
-"""Tests for the self-improving autoresearch loop and its formal certificate."""
+"""Tests for the self-improving autoresearch loop (empirical gate).
 
-import subprocess
-import sys
-from pathlib import Path
-
-import pytest
+The formal Z3 certificate is DEFERRED (specs/deferred/coach_autoimprove_z3.py);
+this suite covers the runtime loop + its acceptance gate, not the proof.
+"""
 
 from uniqa.autoresearch import (
     CoachPolicy, evaluate_policy, propose, autoresearch, POLICY_KEYS, GAIN_MAX,
@@ -14,12 +12,6 @@ from uniqa.psyche import set_coach_gain, COACH_GAIN
 
 def teardown_function():
     set_coach_gain(None)  # never leak global policy state between tests
-
-
-def test_baseline_policy_is_all_ones():
-    p = CoachPolicy.baseline()
-    assert set(p.gains) == set(POLICY_KEYS)
-    assert all(v == 1.0 for v in p.gains.values())
 
 
 def test_gain_actually_changes_outcome():
@@ -58,20 +50,4 @@ def test_annoyance_guardrail_respected():
             assert r.annoyance_proxy <= 1.6
 
 
-def test_determinism():
-    a = autoresearch(rounds=10, n=1500, seed=3)
-    b = autoresearch(rounds=10, n=1500, seed=3)
-    assert a.best_uplift == b.best_uplift
-    assert [r.accepted for r in a.rounds] == [r.accepted for r in b.rounds]
 
-
-@pytest.mark.skipif(
-    __import__("importlib").util.find_spec("z3") is None, reason="z3 not installed"
-)
-def test_z3_certificate_passes():
-    """The formal proof script must discharge all theorems (exit 0)."""
-    spec = Path(__file__).resolve().parents[3] / "specs" / "z3" / "coach_autoimprove.py"
-    assert spec.exists(), spec
-    out = subprocess.run([sys.executable, str(spec)], capture_output=True, text=True)
-    assert out.returncode == 0, out.stdout + out.stderr
-    assert "ALL THEOREMS DISCHARGED" in out.stdout

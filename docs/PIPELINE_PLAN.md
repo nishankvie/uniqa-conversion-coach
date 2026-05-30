@@ -1,13 +1,19 @@
-# Pipeline Plan — LLM personas, coach prompt autoimprovement (Z3-certified), multi-surface coach, outer loop
+# Pipeline Plan — LLM personas, coach prompt autoimprovement, multi-surface coach, outer loop
+
+> **Z3 status: DEFERRED.** The self-improvement gate is **empirical** for now
+> (accept iff `Δuplift > τ` under an annoyance ceiling). The formal Z3 safety
+> certificate is drafted at `specs/deferred/coach_autoimprove_z3.py` and is out of
+> scope this round; mentions of "Z3-certified" below describe that deferred proof.
 
 > **Scope now.** Personas stay **LLM-driven** (OpenRouter teacher *is* the persona —
 > no local fine-tune yet). Build the **full pipeline + project structure**, prove
-> **basic coach-prompt autoimprovement with a Z3 certificate**, then **generalize the
+> **basic coach-prompt autoimprovement** (empirical gate now; formal Z3 certificate
+> deferred), then **generalize the
 > coach to multiple surfaces** (on-page widget, email, WhatsApp bot, landing page,
 > feedback form, survey) and wire the **outer feedback loop** (periodic model
 > re-evals/updates from production logs).
 >
-> **The coach is the training subject.** After the prompt is Z3-certified we **fine-tune
+> **The coach is the training subject.** After the prompt is accepted by the gate we **fine-tune
 > a 1B model (MiniCPM5-1B, LoRA) as the coach on CINECA Leonardo** — input = current
 > session logs, output = reasoning + action log (§5.1). This is where the HPC budget is
 > spent. **Persona** stays LLM-driven; its local fine-tune is **deferred** (§9 +
@@ -15,7 +21,7 @@
 >
 > Grounded in code that exists: `sim.py` (Protocol loop), `widget.py` (static widget +
 > action space), `persona_datagen.py` (OpenRouter persona/teacher), `contracts.py`
-> (JSON I/O), `autoresearch.py` + `specs/z3/coach_autoimprove.py` (Loop A + proof).
+> (JSON I/O), `autoresearch.py` + `specs/deferred/coach_autoimprove_z3.py` (Loop A + proof).
 
 ---
 
@@ -36,9 +42,9 @@ optimization, not a prerequisite.
         │                                 (one iface, swappable impl)      p_identify (§"persona id")
         └────────────────────────────────────┬──────────────────────────────────┬──────────────────────┘
                                               ▼                                  │
- STAGE 3 ─ COACH PROMPT AUTOIMPROVE + Z3   (PROVE THIS NOW)                       │
+ STAGE 3 ─ COACH PROMPT AUTOIMPROVE  (PROVE THIS NOW)                             │
    propose coach-prompt/policy variants → eval vs LLM-persona sim (paired A/B) →  │
-   Z3 gate accepts only real, monotone wins (specs/z3/coach_autoimprove.py).      │
+   EMPIRICAL gate accepts only Δuplift > τ wins. [formal Z3 proof DEFERRED]       │
         │ certified-better coach prompt                                           │
         └────────────────────────────────────┬──────────────────────────────────┘
                                               ▼
@@ -96,7 +102,7 @@ src/uniqa/
   simulation.py       Monte-Carlo A/B uplift report
   loopb/ (new)        Loop B: prod-log ingest · persona refit · IPS off-policy eval
   app.py              Streamlit demo
-specs/z3/coach_autoimprove.py   the certificate (T1–T5)
+specs/deferred/coach_autoimprove_z3.py   the certificate (T1–T5)
 docs/                 this plan · ARCHITECTURE · AUTORESEARCH · FUNNEL_AUTOPSY · …
 ```
 
@@ -200,7 +206,7 @@ widget, now applied to *where* the coach speaks.
 
 ---
 
-## 5. Coach prompt autoimprovement + Z3 (prove this now)
+## 5. Coach prompt autoimprovement (prove this now; formal Z3 certificate deferred)
 
 The coach is **LLM-driven**: its policy lives in a **prompt** (system role + decision
 rules + per-surface copy templates + thresholds). Loop A improves *that prompt*.
@@ -213,22 +219,20 @@ SIMULATE run N sessions/persona through the LLM-persona sim (paired, same seeds)
    │
 EVALUATE Δuplift = conversion(variant) − conversion(current);  annoyance, surface mix
    │
-GATE     accept iff Δuplift > τ,  τ ≥ 2b   (b = persona-sim fidelity budget)
-   │      ← specs/z3/coach_autoimprove.py discharges: soundness, no-regression,
-   │        monotonicity, termination, tightness (the τ ≥ 2b bound is necessary)
+GATE     accept iff Δuplift > τ  (empirical margin) AND annoyance ≤ ceiling
 REPEAT
+         [DEFERRED: the formal Z3 certificate that τ ≥ 2b makes every accepted
+          change a real, monotone improvement — specs/deferred/coach_autoimprove_z3.py]
 ```
 
 - `autoresearch.py` already implements the gated hill-climb; here the **mutation space
   is coach-prompt edits** (not hand-tuned scalars). Keep mutations small + auditable so
   each accepted change is explainable.
-- **Z3 is the load-bearing proof:** *if the LLM-persona sim is close to reality
-  (`|U_sim − U_real| ≤ b`) and `τ ≥ 2b`, every accepted prompt is a real improvement,
-  conversion is monotonically non-decreasing, and the loop converges.* Full statement
-  in `AUTORESEARCH.md`. The whole safety story reduces to one measurable number, `b`.
-- **Where `b` comes from now:** the calibrated `psyche.py` anchors give `ε_anchor`; the
-  tiny-TLM (deferred, §9) is the model that pins `b` most tightly later. For now report
-  `b` from the persona-sim's anchor TV and feed it into the Z3 gate.
+- **Formal safety proof — DEFERRED:** the Z3 certificate (*if `|U_sim − U_real| ≤ b`
+  and `τ ≥ 2b`, every accepted prompt is a real, monotone improvement and the loop
+  converges*) is drafted in `specs/deferred/coach_autoimprove_z3.py` and written up in
+  `AUTORESEARCH.md`, but is out of scope this round. For now the gate is purely
+  empirical (`Δuplift > τ`); choose `τ` conservatively from the persona-sim's anchor TV.
 - **Demo deliverable:** show a before/after coach prompt where Loop A found a real,
   Z3-certified uplift (e.g. moving Peter's callback to a WhatsApp surface *before* S4).
 
@@ -371,5 +375,5 @@ multimodal persona · deposit-first / eID structural funnel changes (pitch only,
 **Reuse, don't rebuild:** `sim.py` Protocol loop (persona ↔ surface ↔ coach) ·
 `widget.py` action space + reactive signals · `persona_datagen.py` OpenRouter persona +
 schema gate · `contracts.py` JSON I/O · `psyche.py` calibrated floor + `b`-anchor ·
-`autoresearch.py` + `specs/z3/coach_autoimprove.py` (Loop A + certificate) ·
+`autoresearch.py` + `specs/deferred/coach_autoimprove_z3.py` (Loop A + certificate) ·
 `leonardo-connect` skill (SSH + SLURM templates for the §5.1 coach job).

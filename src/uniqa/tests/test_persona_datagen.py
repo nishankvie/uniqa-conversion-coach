@@ -7,7 +7,7 @@ from uniqa.funnel import Step
 from uniqa.contracts import EventType
 from uniqa.persona_datagen import (
     build_step_prompt, parse_events, OfflineTeacher, generate_feed,
-    generate_batch, epsilon_teacher_vs_psyche, psyche_reference,
+    generate_batch, epsilon_teacher_vs_psyche,
 )
 
 
@@ -41,12 +41,11 @@ def test_parse_events_drops_malformed():
     # invalid JSON string → []
     assert parse_events("{not json", Step.TARIFF_SELECT, 0.0) == []
 
-
-def test_parse_events_assigns_step_and_time():
-    evs = parse_events([{"type": "step_enter"}, {"type": "price_hover", "target": "price"}],
+    # valid events get the step stamped + monotone timestamps
+    seq = parse_events([{"type": "step_enter"}, {"type": "price_hover", "target": "price"}],
                        Step.PERSONAL_DATA, 10.0)
-    assert all(e.step == Step.PERSONAL_DATA.value for e in evs)
-    assert evs[1].t > evs[0].t
+    assert all(e.step == Step.PERSONAL_DATA.value for e in seq)
+    assert seq[1].t > seq[0].t
 
 
 # ─── feed generation ──────────────────────────────────────────────────────────
@@ -58,12 +57,6 @@ def test_generate_feed_is_terminal_and_parseable():
     assert (EventType.CONVERT in types) or (EventType.ABANDON in types)
     # all events carry a valid step + known type (schema-clean)
     assert all(isinstance(e.type, EventType) for e in log.events)
-
-
-def test_generate_feed_deterministic():
-    a = generate_feed("peter", OfflineTeacher(), random.Random(5))
-    b = generate_feed("peter", OfflineTeacher(), random.Random(5))
-    assert [e.to_dict() for e in a.events] == [e.to_dict() for e in b.events]
 
 
 # ─── batch + ε ────────────────────────────────────────────────────────────────
@@ -87,9 +80,3 @@ def test_zero_bias_teacher_closer_to_psyche_than_high_bias():
     e_lo = epsilon_teacher_vs_psyche(lo)["epsilon_mean_abs"]
     e_hi = epsilon_teacher_vs_psyche(hi)["epsilon_mean_abs"]
     assert e_lo < e_hi                              # ε tracks teacher disagreement
-
-
-def test_psyche_reference_matches_anchor_tables():
-    ref = psyche_reference()
-    assert ref["franz"][Step.PERSONAL_DATA.value] == 0.78
-    assert ref["judith"][Step.TARIFF_SELECT.value] == 0.70

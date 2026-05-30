@@ -1,5 +1,11 @@
 # Self-Improving Coach — Autoresearch + Formal Certificate
 
+> **Status: the formal Z3 certificate is DEFERRED.** The autoresearch loop and its
+> **empirical** acceptance gate (`Δuplift > τ` under an annoyance ceiling) are current.
+> The Z3 proof described below (the safety guarantee that `τ ≥ 2b` makes every accepted
+> change a real improvement) is drafted in `specs/deferred/coach_autoimprove_z3.py` and
+> kept here as design, but is out of scope this round.
+
 > **Thesis.** *When the user model is right, and the experimentation +
 > autoresearch + evals engine are built correctly, the Coach improves itself
 > automatically — provably, without touching production traffic.*
@@ -42,7 +48,7 @@ model (Judith / Franz / Peter), and only ship policies that the loop has
 | Experimentation | `propose()` — local ±step perturbation of k gains | `src/uniqa/autoresearch.py` |
 | Evals engine | `evaluate_policy()` — paired A/B on a synthetic cohort via `run_batch` | `src/uniqa/autoresearch.py` |
 | Gate + loop | `autoresearch()` — hill-climb under the acceptance gate | `src/uniqa/autoresearch.py` |
-| **Certificate** | Z3 proof of soundness / monotonicity / termination | `specs/z3/coach_autoimprove.py` |
+| **Certificate** | Z3 proof of soundness / monotonicity / termination | `specs/deferred/coach_autoimprove_z3.py` |
 
 Run it:
 
@@ -83,7 +89,7 @@ How we keep A1 honest:
 
 ## 4. The certificate (Z3)
 
-`specs/z3/coach_autoimprove.py` discharges five theorems. Each is proved by
+`specs/deferred/coach_autoimprove_z3.py` discharges five theorems. Each is proved by
 asserting the negation and checking it is **UNSAT**.
 
 | # | Theorem | Statement |
@@ -104,7 +110,7 @@ U_real(cand) − U_real(inc)  ≥  (U_sim(cand) − U_sim(inc))  −  2b   >   �
 Run the proof:
 
 ```bash
-python specs/z3/coach_autoimprove.py     # → ALL THEOREMS DISCHARGED ✅
+python specs/deferred/coach_autoimprove_z3.py     # → ALL THEOREMS DISCHARGED ✅
 ```
 
 It is also exercised in CI via `src/uniqa/tests/test_autoresearch.py::test_z3_certificate_passes`.

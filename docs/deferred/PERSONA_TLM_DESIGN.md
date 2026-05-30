@@ -255,7 +255,7 @@ We can't measure ε directly (no real per-session logs). Two proxies:
    large *before* calibration, A1 is wobbly and we need Loop B to close it.
    Report this as the **headline "how much do we trust the teacher" number**.
 
-The Z3 gate in `specs/z3/coach_autoimprove.py` requires `τ ≥ 2b`; the budget
+The Z3 gate in `specs/deferred/coach_autoimprove_z3.py` requires `τ ≥ 2b`; the budget
 `b` here is exactly `ε_anchor`. So §3.3 directly sets the safety threshold for
 Loop A acceptance. **This is the load-bearing connection between the persona-
 TLM design and the rest of the autoresearch story.**

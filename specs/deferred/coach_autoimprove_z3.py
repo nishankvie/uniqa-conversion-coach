@@ -1,4 +1,8 @@
 """
+DEFERRED (not part of the current scope). The live autoresearch gate is empirical
+(Δuplift > τ); this script is the drafted formal proof kept for later. Needs the
+optional `deferred` extra: pip install -e ".[deferred]".
+
 Z3 formal certificate: the autoresearch loop self-improves the Coach.
 
 We do NOT ask Z3 to prove the persona model is realistic — that is an *empirical*

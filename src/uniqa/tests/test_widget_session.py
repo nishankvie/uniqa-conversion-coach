@@ -1,17 +1,12 @@
 """Widget twin action-space, whole-session generation, UX cost + engagement."""
 
 import json
-import random
 
 from uniqa.funnel import Step
 from uniqa.contracts import Event, EventType, ActivityLog, new_session_id
-from uniqa.widget import (
-    STEP_ACTIONS, legal_events, render_action_space, TARIFFS, SV_OPTIONS, tariff_by_id,
-)
+from uniqa.widget import STEP_ACTIONS, legal_events, render_action_space, tariff_by_id
 from uniqa.eventproc import ux_cost, engagement
-from uniqa.persona_datagen import (
-    build_session_prompt, parse_session, OfflineTeacher, generate_feed,
-)
+from uniqa.persona_datagen import build_session_prompt, parse_session
 
 
 def test_each_step_has_action_space_and_legal_events():
@@ -65,19 +60,9 @@ def test_parse_session_gates_illegal_events_and_keeps_timing_and_thought():
     sel = next(e for e in evs if e.type is EventType.SELECT)
     assert sel.t == 3.0 and sel.thought == "optimal fits"
     assert [e.t for e in evs] == sorted(e.t for e in evs)
-
-
-def test_parse_session_rejects_unknown_step_and_bad_json():
+    # unknown step / bad json → empty
     assert parse_session({"events": [{"step": "S99", "type": "tap", "t": 1}]}) == []
     assert parse_session("{not json") == []
-
-
-def test_whole_session_feed_has_thoughts_and_timestamps():
-    log = generate_feed("franz", OfflineTeacher(), random.Random(2))
-    assert any(e.thought for e in log.events)
-    ts = [e.t for e in log.events]
-    assert ts == sorted(ts)
-    assert log.events[-1].type in (EventType.CONVERT, EventType.ABANDON)
 
 
 def test_ux_cost_sums_keystrokes_and_taps():

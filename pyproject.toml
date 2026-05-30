@@ -15,7 +15,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "z3-solver>=4.12"]
+dev = ["pytest>=8.0"]
+# DEFERRED: the formal Z3 certificate (specs/deferred/coach_autoimprove_z3.py).
+deferred = ["z3-solver>=4.12"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

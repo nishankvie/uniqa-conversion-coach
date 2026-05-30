@@ -3,7 +3,7 @@
 import random
 
 from uniqa.funnel import Step
-from uniqa.contracts import Event, EventType, ActivityLog, CoachObservation, CoachDecision
+from uniqa.contracts import Event, EventType, ActivityLog
 from uniqa.coach_io import RuleCoachModel
 from uniqa.sim import (
     simulate, PsychePersona, WidgetTwin, PersonaModel, WidgetModel, CoachModel,
@@ -16,12 +16,23 @@ def _terminal(log: ActivityLog) -> EventType:
     return log.events[-1].type
 
 
-# ─── interfaces are satisfied (any backend pluggable) ─────────────────────────
+# ─── integrated guardrails across all personas (gap coverage) ─────────────────
 
-def test_default_backends_satisfy_protocols():
+def test_flow_b_all_personas_terminate_within_budget():
+    """Every persona, many seeds: the loop terminates, stays schema-clean, and the
+    coach never exceeds the widget budget — the integrated safety guarantee."""
+    # default backends satisfy their Protocols (pluggability)
     assert isinstance(PsychePersona(), PersonaModel)
     assert isinstance(WidgetTwin(), WidgetModel)
     assert isinstance(RuleCoachModel(), CoachModel)
+    for persona in ("judith", "franz", "peter"):
+        for seed in range(12):
+            log = simulate(PsychePersona(), WidgetTwin(), coach=RuleCoachModel(),
+                           persona_name=persona, rng=random.Random(seed))
+            assert _terminal(log) in TERMINALS
+            assert all(isinstance(e.type, EventType) for e in log.events)  # schema-clean
+            shown = [e for e in log.events if e.type is EventType.WIDGET_SHOWN]
+            assert len(shown) <= 3, f"{persona}/{seed}: budget exceeded ({len(shown)})"
 
 
 # ─── Flow A: persona ↔ widget (no coach) ──────────────────────────────────────

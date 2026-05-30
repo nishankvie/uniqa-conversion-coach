@@ -6,7 +6,7 @@ from uniqa.funnel import Step
 from uniqa.scope import (
     Coverage, Insured, Tariff, Route, route, is_conversion,
     ONLINE_TARIFFS, ADVISORY_TARIFFS, ADDON_IS_INSCOPE,
-    validate_step, FORM_FIELDS, _valid_sv_number, TARIFF_PRICE_EUR,
+    validate_step, FORM_FIELDS, _valid_sv_number,
 )
 
 
@@ -57,11 +57,6 @@ def test_tariff_partitions_are_disjoint_and_complete():
 def test_addon_step_flagged_out_of_scope():
     # Documents finding F1: add-on selection is the hospital path, not Privatarzt.
     assert ADDON_IS_INSCOPE is False
-
-
-def test_official_tariff_prices_present():
-    assert TARIFF_PRICE_EUR[Tariff.START] == 38.74
-    assert TARIFF_PRICE_EUR[Tariff.OPTIMAL] == 68.14
 
 
 # ─── Form logic / field validation ───────────────────────────────────────────

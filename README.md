@@ -55,23 +55,20 @@ The full design is in [`docs/PIPELINE_PLAN.md`](docs/PIPELINE_PLAN.md).
 
 ---
 
-## Self-improvement, proven safe
+## Self-improvement
 
 The Coach policy lives in a prompt. An autoresearch loop proposes prompt/policy
 changes, evaluates them against the persona simulator with paired A/B sampling, and
-accepts a change only if a Z3 proof certifies it is a real improvement:
+accepts a change only when it clears an empirical margin (`Δuplift > τ`) under an
+annoyance ceiling. An outer feedback loop re-grounds the simulator on production logs
+on each release. Details: [`docs/AUTORESEARCH.md`](docs/AUTORESEARCH.md).
 
-> If the simulator is within a measured fidelity budget of reality
-> (`|U_sim − U_real| ≤ b`) and the acceptance margin satisfies `τ ≥ 2b`, then every
-> accepted policy is a real improvement, real conversion is monotonically
-> non-decreasing, and the loop converges.
+> **Deferred:** a formal safety certificate for the gate (a Z3 proof that, given
+> simulator fidelity `|U_sim − U_real| ≤ b` and margin `τ ≥ 2b`, every accepted change
+> is a real, monotone improvement) is drafted in
+> `specs/deferred/coach_autoimprove_z3.py` but is out of scope for now.
 
-`specs/z3/coach_autoimprove.py` discharges five theorems (soundness, no-regression,
-monotonicity, termination, and tightness of the `τ ≥ 2b` bound). An outer feedback
-loop re-grounds the simulator on production logs on each release, keeping `b` small
-so the guarantee holds. Details: [`docs/AUTORESEARCH.md`](docs/AUTORESEARCH.md).
-
-Once a policy is certified, the Coach is distilled into a **local 1B model
+Once a policy is accepted, the Coach is distilled into a **local 1B model
 (MiniCPM5-1B, LoRA) fine-tuned on the CINECA Leonardo cluster** — input is the
 current session log, output is the reasoning plus the action. This gives
 low-latency, private, on-premise inference in production. (Persona models stay
@@ -119,8 +116,8 @@ alone — that restraint is part of the intervention-quality story.
 │   ├── autoresearch.py             self-improvement loop (propose → evaluate → gate)
 │   ├── simulation.py               Monte-Carlo A/B + uplift report
 │   ├── app.py                      Streamlit demo
-│   └── tests/                      93 tests (calibration, constraints, uplift, autoresearch, Z3)
-├── specs/z3/coach_autoimprove.py   the Z3 certificate
+│   └── tests/                      76 tests (calibration, constraints, uplift, autoresearch, guardrails)
+├── specs/deferred/coach_autoimprove_z3.py   formal Z3 certificate (DEFERRED)
 └── docs/                           see Documentation below
 ```
 
@@ -132,10 +129,9 @@ alone — that restraint is part of the intervention-quality story.
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-pytest -q                                 # full suite incl. the Z3 certificate
+pytest -q                                 # full suite (76 tests)
 python -m uniqa.journey -n 4000           # baseline vs Coach A/B uplift report
 python -m uniqa.autoresearch --rounds 30  # gated self-improvement on the simulator
-python specs/z3/coach_autoimprove.py      # discharge the proof
 streamlit run src/uniqa/app.py            # interactive demo (journey + A/B dashboards)
 ```
 
@@ -147,7 +143,7 @@ streamlit run src/uniqa/app.py            # interactive demo (journey + A/B dash
 |---|---|
 | [`docs/PIPELINE_PLAN.md`](docs/PIPELINE_PLAN.md) | The master plan: LLM personas, multi-surface coach, prompt autoimprovement + Z3, the coach 1B fine-tune (Leonardo), and the outer loop. |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | App/Coach split, the JSON contract, and the dual learning loop. |
-| [`docs/AUTORESEARCH.md`](docs/AUTORESEARCH.md) | The self-improvement loop and the formal certificate. |
+| [`docs/AUTORESEARCH.md`](docs/AUTORESEARCH.md) | The self-improvement loop (empirical gate; formal Z3 certificate deferred). |
 | [`docs/FUNNEL_AUTOPSY.md`](docs/FUNNEL_AUTOPSY.md) | The real funnel, screen by screen, and where users drop off. |
 | [`docs/PSYCHE_WALKTHROUGH.md`](docs/PSYCHE_WALKTHROUGH.md) | First-person trace of the funnel grounding the persona model. |
 | [`docs/RESEARCH_insurance_conversion.md`](docs/RESEARCH_insurance_conversion.md) | Conversion-optimization research brief. |

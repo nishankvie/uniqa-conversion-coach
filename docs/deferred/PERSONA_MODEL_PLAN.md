@@ -114,7 +114,7 @@ Stage 2 (black-box, on CPU):  hold transformer FIXED; fit 40 free scalars
 - **Teacher provides shape** (persona voice, reactions to atoms); **calibration
   provides marginals** (we do NOT ask the LLM to be metric-accurate).
 - **ε for the Z3 gate falls out here:** `ε_anchor = TV(sim, anchors)` after Stage 2
-  → this is the budget `b` in `specs/z3/coach_autoimprove.py` (`τ ≥ 2b`). The
+  → this is the budget `b` in `specs/deferred/coach_autoimprove_z3.py` (`τ ≥ 2b`). The
   persona-model plan and the autoresearch safety proof connect exactly here.
 - Also report **ε_teacher_vs_psyche** = "how much do we trust the LLM teacher"
   (uncalibrated TV between teacher and psyche on identical (persona,step) cells).
