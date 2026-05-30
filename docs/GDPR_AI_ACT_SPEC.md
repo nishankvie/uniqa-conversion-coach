@@ -351,7 +351,7 @@ showWidget(intervention); // local DOM manipulation
 **ONNX model itself — does it contain personal data?**
 
 If the model was trained on UNIQA's real customer data (clickstream, purchase history), then the trained model weights may be a "derived" form of personal data. Under GDPR, this is contested — most data protection authorities have not issued clear guidance. Practical mitigation:
-- Train on synthetic data (as planned in the UNIQA_ANALYSIS.md) → no personal data in model weights
+- Train on synthetic data (persona simulator) → no personal data in model weights
 - If trained on real data: k-anonymity + differential privacy during training
 - Document training data in model card
 

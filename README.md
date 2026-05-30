@@ -69,24 +69,35 @@ Step-6 ≈ 78 %.
 ├── README.md                     ← you are here
 ├── pyproject.toml                ← src-layout package (uniqa-coach)
 ├── src/uniqa/
-│   ├── funnel.py                 ← 8-step funnel state machine + hesitation signals
+│   ├── funnel.py                 ← funnel state machine + hesitation signals
+│   ├── scope.py                  ← in-scope funnel + form logic registry
 │   ├── coach.py                  ← Coach policy: 12 actions, decision tree, hard gates, widget copy
 │   ├── psyche.py                 ← persona MIND model (6 latent vars, intent mix, hazard bounce)
 │   ├── personas.py               ← rule-based + LLM persona drivers, session runner
+│   ├── contracts.py              ← JSON contracts: events, effectors+guardrails, Coach I/O, envelopes
+│   ├── coach_io.py               ← psyche signals → activity log → observation → decision adapter
 │   ├── journey.py                ← composable token harness (demo + batch) + JSON-render twin
+│   ├── eventproc.py              ← event post-processing
+│   ├── tlm.py                    ← trajectory-token space (VOCAB / encode / decode)
+│   ├── widget.py                 ← per-step action spaces + json-render widget twin
+│   ├── play.py                   ← human-playable journey (ASCII screens)
+│   ├── persona_datagen.py        ← persona data-gen pipeline + LLM teacher + ε measurement
+│   ├── sim.py                    ← turn-based simulator (App↔Coach↔persona, both flows)
 │   ├── simulation.py             ← Monte-Carlo A/B + uplift report
 │   ├── autoresearch.py           ← self-improving loop (propose → eval → gate → accept)
 │   ├── app.py                    ← Streamlit demo (Live journey + A/B uplift)
-│   └── tests/                    ← 38 tests (calibration, constraints, uplift, autoresearch, Z3)
+│   └── tests/                    ← 93 tests (calibration, constraints, uplift, autoresearch, Z3)
 ├── specs/z3/coach_autoimprove.py ← Z3 proof the autoresearch loop self-improves (T1–T5)
 └── docs/
+    ├── ARCHITECTURE.md           ← App/Coach split, contracts, dual learning loop, UI tokens
     ├── AUTORESEARCH.md           ← self-improving Coach: loop, assumption A1, certificate
     ├── PSYCHE_WALKTHROUGH.md     ← first-person trace of the real screenshotted funnel
-    ├── WAR_PLAN.md               ← scope decisions, build plan
-    ├── PRODUCT_VISION.md · SYSTEM_FRAME.md · FUNNEL_AUTOPSY.md
-    ├── ANALYSIS.md · BUILD_PLAN.md · WIDGET_DESIGN.md · WIDGET_MODEL_SPEC.md
-    ├── GDPR_AI_ACT_SPEC.md       ← compliance framing
-    └── RESEARCH_insurance_conversion.md
+    ├── FUNNEL_AUTOPSY.md         ← screen-by-screen drop-off analysis
+    ├── PERSONA_MODEL_PLAN.md     ← learned persona model build plan + data provenance
+    ├── PERSONA_TLM_DESIGN.md     ← persona-TLM model design, proof, calibration
+    ├── TLM_RESEARCH.md           ← trajectory-language-model prior art + feasibility
+    ├── GDPR_AI_ACT_SPEC.md       ← EU AI Act + GDPR compliance framing
+    └── RESEARCH_insurance_conversion.md  ← conversion-optimization research brief
 ```
 
 ---
@@ -98,7 +109,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
 # tests (incl. the Z3 certificate)
-pytest -q                                   # 38 passed
+pytest -q                                   # 93 passed
 
 # A/B simulation
 python -m uniqa.journey -n 4000             # baseline vs coach uplift report
@@ -155,7 +166,7 @@ simulator faithful and the optimisation is provably safe. Full write-up:
 - ✅ Monte-Carlo A/B simulation + uplift report
 - ✅ Streamlit demo — Live journey (mind HUD, widgets, WhatsApp) + A/B dashboards
 - ✅ Self-improving autoresearch loop + **Z3 certificate (5 theorems)**
-- ✅ 38 tests passing
+- ✅ 93 tests passing
 - ▢ Roadmap: fidelity dashboard (live ε), richer policy space, LLM-proposed experiments, shadow deployment (see `docs/AUTORESEARCH.md`)
 
 ---

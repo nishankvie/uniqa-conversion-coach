@@ -190,4 +190,35 @@ improvement only ships if the simulator it was found on is close enough to reali
 - ▢ Wire `RuleCoachModel` into `journey.run_journey` as the decision source (drop-in for `decide_action`) so the whole sim runs on the contract.
 - ▢ Swap `RuleCoachModel` body for a learned policy (same signature).
 
-59 tests passing.
+93 tests passing.
+
+---
+
+## 8. UI design tokens (for the renderer)
+
+Every coach widget is JSON (§5); the renderer styles it with UNIQA's visual
+identity so interventions read as "from UNIQA". Tokens inferred from UNIQA's
+public funnel + brand guidelines.
+
+| Token | Value | Use |
+|---|---|---|
+| `color.primary` | `#0046A0` (UNIQA blue) | Headings, primary CTA, progress fill |
+| `color.primary.dark` | `#002D6A` | Hover/active CTA |
+| `color.accent` | `#E2001A` (UNIQA red) | Urgency, "save" badges, hesitation flag |
+| `color.success` | `#1FA971` | Coverage included, confirmations |
+| `color.warning` | `#F0A028` | "Advisory required" tags, soft alerts |
+| `color.surface` / `.alt` | `#FFFFFF` / `#F4F6FA` | Card bg / page bg |
+| `color.ink` / `.muted` | `#1A1F2C` / `#5C6479` | Body / captions |
+| `color.border` | `#D6DBE5` | Card borders, dividers |
+| `radius.card` / `.pill` | `12px` / `999px` | Cards / badges |
+| `shadow.card` | `0 2px 8px rgba(0,0,0,.06)` | Resting cards |
+| `shadow.elevated` | `0 8px 24px rgba(0,70,160,.12)` | Coach intervention widgets |
+| `font.family` | `"UNIQA Sans", "Inter", system-ui` | Whole product |
+| `font.numeric` | tabular-nums | All price displays |
+
+**Tone of voice:** Sie-form (formal German), concrete numbers first /
+reassurance second, no marketing superlatives (soft proof: "seit 1811",
+"AAA-rated"), Austrian conservatism (disclaimers visible), no emojis, no
+exclamation marks except rare urgency. Brand tone vector (maps to widget `tone`
+props): trustworthy 0.95 · clear 0.90 · austrian 0.85 · digital_forward 0.80 ·
+warm 0.55 · urgency_default 0.20.

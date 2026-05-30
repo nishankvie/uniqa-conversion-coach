@@ -195,7 +195,51 @@ Ordered by how much they collapse uncertainty per hour spent.
 | A4 | decision-event granularity is sufficient (no ms timing) | design choice | step 4 G1/G2; revisit in v1 |
 | A5 | persona differentiation is learnable, not tag-memorised | assumed | step 4 G3 under tag-dropout |
 | A6 | atom effects are identifiable from feeds | assumed | counterfactual pairs (step 3) + diagnostic |
-| A7 | addon-step (S5/24%) scope (see HARDENING_PLAN F1) | flagged | resolve before treating 24% as a calibration anchor |
+| A7 | addon-step (S5/24%) scope — is the 24% drop a true funnel step or an add-on detour? | flagged | resolve before treating 24% as a calibration anchor |
 
 **Headline:** the entire plan is sound *conditional on A1*. Step 1 tests A1 for
 half a day of effort and zero GPU. Do it first.
+
+---
+
+## Appendix — Data provenance & simulation priors
+
+The persona priors below are **real survey weights**, not invented personas —
+this is what justifies the simulation calibration anchors (30/50/20 mix,
+conversion 5.6%, drops 66/24/78).
+
+**Provenance.** UNIQA retail segmentation research, Oct–Nov 2025, n=4,004
+Austrians aged 18–75. Three segments map to the online funnel: S1 (n=620),
+S2 (n=688), S3 (n=546).
+
+### Segment anatomy
+
+| Metric | Judith S1 "Rising Hybrids" | Franz S2 "Online Affine" | Peter S3 "Service Affine" |
+|---|---|---|---|
+| **Estimated funnel share** | 30% | **50%** | 20% |
+| Market size (Austria) | 975k | 1.105M | 910k |
+| Age mean | 43.2 | 43.1 | 40.9 |
+| Income €/month | **€4,042** | €3,692 | €3,557 |
+| KV ownership today | **34%** | 25% | 21% |
+| KV purchase intent (3y) | **18%** | 16% | 13% |
+| NPS | **+17** | +1 | **−6** |
+| Switch willingness | 7% | 16% | **24%** |
+| Online purchase share (any product) | 19% | **69%** | 34% |
+| No advisor (%) | 12% | **47%** | 28% |
+
+### Dominant channel per funnel step (drives Coach strategy)
+
+- **Judith (S1)** — researches online, converts offline: consultation 90% /
+  purchase 78% **via advisor**. → serve research, then offer a smooth advisor
+  booking; don't force online completion.
+- **Franz (S2)** — all-online, refuses channel switch: purchase **89%
+  self-online**, comparison 94%. → primary online conversion target; any push
+  to an advisor is an active failure (hard constraint). Most comparison-active.
+- **Peter (S3)** — customer service as default for *everything*: purchase
+  **59% customer_service**. → not lost in the funnel, just in the wrong
+  channel; optimal action is early, proactive service handoff (WhatsApp).
+
+> Behavioural signal hypotheses per persona (long price-dwell, tariff hover
+> without selection, backwards-nav after "advisory required") are labelled as
+> *hypotheses* in the source JSON — they are simulation priors to test, not
+> ground truth.
