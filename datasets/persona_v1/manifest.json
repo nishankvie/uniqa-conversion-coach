@@ -1,5 +1,5 @@
 {
-  "ts": "20260530_224925",
+  "ts": "20260530_231840",
   "teacher": "openrouter:openai/gpt-4o-mini",
   "mode": "population",
   "weights": {
@@ -13,19 +13,19 @@
     "peter": 100
   },
   "n_sessions": 500,
-  "n_sft_steps": 2122,
+  "n_sft_steps": 2129,
   "params": {
     "judith": {
-      "budget_pressure": 0.163,
-      "value_orientation": 0.703,
+      "budget_pressure": 0.137,
+      "value_orientation": 0.684,
       "complexity_overwhelm": 0.3,
-      "advisor_lean": 0.357,
+      "advisor_lean": 0.338,
       "patience": 0.55,
       "ux_willingness": 0.55,
       "comprehension": 0.8,
       "distractibility": 0.45,
-      "commitment_anxiety": 0.851,
-      "uncertainty_aversion": 0.722
+      "commitment_anxiety": 0.891,
+      "uncertainty_aversion": 0.742
     },
     "franz": {
       "budget_pressure": 0.558,
@@ -36,20 +36,20 @@
       "ux_willingness": 0.55,
       "comprehension": 0.85,
       "distractibility": 0.35,
-      "commitment_anxiety": 0.4,
-      "uncertainty_aversion": 0.63
+      "commitment_anxiety": 0.511,
+      "uncertainty_aversion": 0.657
     },
     "peter": {
-      "budget_pressure": 0.703,
-      "value_orientation": 0.517,
+      "budget_pressure": 0.681,
+      "value_orientation": 0.501,
       "complexity_overwhelm": 0.858,
-      "advisor_lean": 0.604,
+      "advisor_lean": 0.588,
       "patience": 0.25,
       "ux_willingness": 0.271,
       "comprehension": 0.35,
       "distractibility": 0.65,
-      "commitment_anxiety": 0.48,
-      "uncertainty_aversion": 0.564
+      "commitment_anxiety": 0.528,
+      "uncertainty_aversion": 0.588
     }
   },
   "persona_prompt_chars": {

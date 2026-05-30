@@ -1,0 +1,33 @@
+# Leonardo training env for the persona-LoRA distillation jobs.
+# Used by leonardo/slurm_finetune.sh:  pixi run --manifest-path $HOME/zero-one/pixi.toml ...
+# All heavy deps come from PyPI wheels (torch wheel bundles CUDA 12 → runs on A100).
+[project]
+name = "zero-one"
+version = "0.1.0"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[system-requirements]
+cuda = "12"
+
+[dependencies]
+python = "3.11.*"
+pip = "*"
+
+[pypi-dependencies]
+# --- training (adapters) ---
+torch = ">=2.3"
+transformers = ">=4.46"
+trl = ">=0.13"          # SFTConfig.assistant_only_loss + max_length
+peft = ">=0.13"
+datasets = ">=3.0"
+accelerate = ">=1.1"
+# --- runtime needed by eval_local.py (imports uniqa.persona_datagen / research.run) ---
+openai = ">=1.40"
+jsonschema = ">=4.0"
+
+[tasks]
+# convenience: pixi run train-franz / etc. (PYTHONPATH so `uniqa` + `research` import)
+train-judith = { cmd = "python3 leonardo/train_persona_lora.py --persona judith --data leonardo/data --out leonardo/out/judith", env = { PYTHONPATH = "src" } }
+train-franz  = { cmd = "python3 leonardo/train_persona_lora.py --persona franz  --data leonardo/data --out leonardo/out/franz",  env = { PYTHONPATH = "src" } }
+train-peter  = { cmd = "python3 leonardo/train_persona_lora.py --persona peter  --data leonardo/data --out leonardo/out/peter",  env = { PYTHONPATH = "src" } }

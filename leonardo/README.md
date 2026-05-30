@@ -21,9 +21,10 @@ coach is added, its action enters each step's context and the local persona reac
 
 ## Dataset (locked)
 
-`datasets/persona_v1/` — 300 sessions (100/persona), **1238 per-step SFT pairs**, ε=0.104 vs
-the `funnel.py` anchors (under the 0.12 gate; all personas convert). Built by
-`research.build_dataset` with the locked, persona-coherent dials.
+`datasets/persona_v1/` — 500 sessions at the **30/50/20 population mix** (judith 150 /
+franz 250 / peter 100), **2129 per-step SFT pairs**, ε=0.0998 vs the `funnel.py` anchors
+(under the 0.12 gate; all personas convert). Built by `research.build_dataset --total 500`
+with the locked, persona-coherent dials (matches `prompts/personas/*.params.json`).
 
 ## Pipeline
 
@@ -31,7 +32,8 @@ the `funnel.py` anchors (under the 0.12 gate; all personas convert). Built by
 # 1. prepare per-persona SFT (login node — has the dataset)
 python leonardo/prepare_sft.py --in datasets/persona_v1/sft_steps.jsonl --out leonardo/data
 # 2. download the base model on a LOGIN node (compute nodes have no internet)
-#    e.g. huggingface-cli download Qwen/Qwen2.5-1.5B-Instruct
+#    huggingface-cli download Qwen/Qwen2.5-1.5B-Instruct --local-dir $HOME/models/qwen2.5-1.5b
+#    (slurm_finetune.sh defaults BASE to $HOME/models/qwen2.5-1.5b)
 # 3. fine-tune the 3 LoRA adapters + eval (GPU job, ~A100)
 $LEO put leonardo && $LEO run "sbatch zero-one/leonardo/slurm_finetune.sh"
 # 4. eval locally any time
