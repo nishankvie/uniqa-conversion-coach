@@ -312,7 +312,7 @@ After Step 5 (add-ons), before personal data form:
 1. **Sunk cost**: €1 paid → user is now a "customer" not a "prospect" → completion rate for the full form should be 3-5× higher
 2. **Time-decoupling**: heavy form can be completed async (email link, app, next day)
 3. **No price uncertainty**: they've committed at today's rate even before health questions
-4. **GDPR-compatible**: only email needed for the deposit step — full data collected at completion
+4. **Minimal data**: only email needed for the deposit step — full data collected at completion
 5. **Reduces anxiety about health questions**: user has already "bought" → health questions feel like formalities not gatekeepers
 
 **Legal note (Austrian VersVG):** Insurance contract typically requires offer + acceptance + all material data. The deposit creates an "option to buy" or a "pre-contract" — requires legal review but likely feasible as a "Anfrage" that locks the start date. UNIQA can reserve a start date without binding coverage until the form is complete.

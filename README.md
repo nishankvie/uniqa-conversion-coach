@@ -97,7 +97,6 @@ Step-6 ≈ 78 %.
     ├── PERSONA_MODEL_PLAN.md     ← learned persona model build plan + data provenance
     ├── PERSONA_TLM_DESIGN.md     ← tiny-TLM design (baseline + Z3 calibration anchor)
     ├── TLM_RESEARCH.md           ← trajectory-language-model prior art + feasibility
-    ├── GDPR_AI_ACT_SPEC.md       ← EU AI Act + GDPR compliance framing
     └── RESEARCH_insurance_conversion.md  ← conversion-optimization research brief
 ```
 
