@@ -1,35 +1,35 @@
 {
   "judith": {
-    "train": 359,
-    "val": 39,
+    "train": 542,
+    "val": 60,
     "steps": {
-      "S1_COVERAGE_TYPE": 100,
-      "S3_PERSONAL_INFO": 98,
-      "S4_TARIFF_SELECT": 89,
-      "S2_INSURED_PERSONS": 100,
-      "S6_PERSONAL_DATA": 11
+      "S2_INSURED_PERSONS": 150,
+      "S1_COVERAGE_TYPE": 150,
+      "S4_TARIFF_SELECT": 140,
+      "S3_PERSONAL_INFO": 149,
+      "S6_PERSONAL_DATA": 13
     }
   },
   "franz": {
-    "train": 418,
-    "val": 46,
+    "train": 1032,
+    "val": 114,
     "steps": {
-      "S1_COVERAGE_TYPE": 100,
-      "S2_INSURED_PERSONS": 100,
-      "S6_PERSONAL_DATA": 65,
-      "S4_TARIFF_SELECT": 99,
-      "S3_PERSONAL_INFO": 100
+      "S2_INSURED_PERSONS": 250,
+      "S1_COVERAGE_TYPE": 250,
+      "S3_PERSONAL_INFO": 250,
+      "S4_TARIFF_SELECT": 249,
+      "S6_PERSONAL_DATA": 147
     }
   },
   "peter": {
-    "train": 339,
+    "train": 337,
     "val": 37,
     "steps": {
-      "S2_INSURED_PERSONS": 97,
-      "S1_COVERAGE_TYPE": 100,
-      "S3_PERSONAL_INFO": 92,
+      "S3_PERSONAL_INFO": 93,
       "S4_TARIFF_SELECT": 73,
-      "S6_PERSONAL_DATA": 14
+      "S2_INSURED_PERSONS": 98,
+      "S1_COVERAGE_TYPE": 100,
+      "S6_PERSONAL_DATA": 10
     }
   }
 }

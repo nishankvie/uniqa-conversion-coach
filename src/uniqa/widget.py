@@ -62,6 +62,12 @@ def ux_complexity(step: Step) -> dict:
     return UX_COMPLEXITY.get(step, {"grade": "medium", "load": 0.5, "note": ""})
 
 
+# S6 health-questionnaire influence on the binding FINAL price: a random 6-10% loading, or
+# none (confirmed: the health answers DO move the binding premium). The screen shows the new
+# number but gives NO explanation of why / which answer caused it.
+HEALTH_SURCHARGE_RANGE = (6.0, 10.0)
+
+
 def tariff_coverage_brief() -> dict:
     """Compact, REAL coverage facts (Private_Doctor_Tariff_Product_Reference) so the persona
     can reason about whether THEIR specific need is met — and notice there's no way to ask a

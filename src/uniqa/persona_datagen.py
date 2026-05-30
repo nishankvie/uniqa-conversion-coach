@@ -35,7 +35,8 @@ from uniqa.journey import STEP_SCREENS, render_step
 from uniqa.play import ascii_screen
 from uniqa.psyche import init_mind, step_dynamics, evaluate_bounce
 from uniqa.widget import (render_action_space, legal_events, STEP_ACTIONS,
-                          widget_response_model, ux_complexity, TARIFFS, tariff_coverage_brief)
+                          widget_response_model, ux_complexity, TARIFFS, tariff_coverage_brief,
+                          HEALTH_SURCHARGE_RANGE)
 from uniqa.scope import premium as _premium, Tariff as _Tariff
 
 _STEP_BY_VALUE = {s.value: s for s in Step}
@@ -208,7 +209,10 @@ _COGNITIVE_MODEL = {
         "(1) PRICE may JUMP — the `final_price` block shows provisional (S4) vs final; if your "
         "health answers added a ~6-10% loading the final is HIGHER, which triggers the SAME price "
         "reaction as S4 (above `price_expectation`, straining `budget_pressure`, failing your value "
-        "math → you bail, especially if you hate surprises). (2) the form asks height/weight — if "
+        "math → you bail, especially if you hate surprises). The rise is UNEXPLAINED, so a "
+        "price-sensitive / uncertainty-averse person reacts with a DELAY first — emit idle/pause, "
+        "re-read, and a confused thought ('why did it go up? which answer caused this?') — THEN "
+        "decide; do not bail instantly. (2) the form asks height/weight — if "
         "`session_instance.recalls_measurements` says you're unsure, that's friction (you guess, get "
         "annoyed, or stall). (3) the binding commitment itself: `commitment_anxiety` + "
         "`uncertainty_aversion` + drain (`effort_left`) + `advisor_lean`. UNIVERSAL TRUTH: finishing "
@@ -291,7 +295,8 @@ def _final_price_block(disposition: dict | None, selected_tariff: str | None) ->
     blk = {"provisional_eur_seen_at_s4": prov, "final_eur_after_health_questions": final,
            "increase_pct": round(sur, 1),
            "note": (f"Your health answers added a {round(sur,1)}% risk loading — the final price "
-                    f"€{final} is HIGHER than the €{prov} you saw at S4.") if sur > 0
+                    f"€{final} is HIGHER than the €{prov} you saw at S4. The screen does NOT explain "
+                    f"WHY it rose or which answer caused it.") if sur > 0
                    else f"No risk loading — the final price equals the €{prov} you saw at S4."}
     return {"final_price": blk}
 
@@ -793,7 +798,8 @@ def _sample_disposition(persona: str, rng: random.Random) -> dict:
     out["recalls_measurements"] = _weighted(rng, [("knows their height/weight", .7),
                                                   ("not sure of their exact height/weight", .3)])
     rate = _HEALTH_LOADING_RATE.get(persona, 0.45)
-    out["_health_surcharge_pct"] = round(rng.uniform(6, 10), 1) if rng.random() < rate else 0
+    lo, hi = HEALTH_SURCHARGE_RANGE
+    out["_health_surcharge_pct"] = round(rng.uniform(lo, hi), 1) if rng.random() < rate else 0
     return out
 
 

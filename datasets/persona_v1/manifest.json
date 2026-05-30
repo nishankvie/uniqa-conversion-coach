@@ -1,9 +1,19 @@
 {
-  "ts": "20260530_221625",
+  "ts": "20260530_224925",
   "teacher": "openrouter:openai/gpt-4o-mini",
-  "n_per_persona": 100,
-  "n_sessions": 300,
-  "n_sft_steps": 1238,
+  "mode": "population",
+  "weights": {
+    "judith": 0.3,
+    "franz": 0.5,
+    "peter": 0.2
+  },
+  "counts_per_persona": {
+    "judith": 150,
+    "franz": 250,
+    "peter": 100
+  },
+  "n_sessions": 500,
+  "n_sft_steps": 2122,
   "params": {
     "judith": {
       "budget_pressure": 0.163,
