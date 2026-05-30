@@ -45,3 +45,10 @@ research/runs/
 # eval reports (data; promote notable ones manually)
 evals/reports/
 research/runs/_global_best.json
+
+# big regenerable training blob (full prompts per step); recipe + stats are tracked
+datasets/*/sft_steps.jsonl
+
+# Leonardo: regenerable training splits + model adapters (big); recipe is tracked
+leonardo/data/*.jsonl
+leonardo/out/

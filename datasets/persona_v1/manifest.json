@@ -1,0 +1,50 @@
+{
+  "ts": "20260530_221625",
+  "teacher": "openrouter:openai/gpt-4o-mini",
+  "n_per_persona": 100,
+  "n_sessions": 300,
+  "n_sft_steps": 1238,
+  "params": {
+    "judith": {
+      "budget_pressure": 0.163,
+      "value_orientation": 0.703,
+      "complexity_overwhelm": 0.3,
+      "advisor_lean": 0.357,
+      "patience": 0.55,
+      "ux_willingness": 0.55,
+      "comprehension": 0.8,
+      "distractibility": 0.45,
+      "commitment_anxiety": 0.851,
+      "uncertainty_aversion": 0.722
+    },
+    "franz": {
+      "budget_pressure": 0.558,
+      "value_orientation": 0.892,
+      "complexity_overwhelm": 0.15,
+      "advisor_lean": 0.08,
+      "patience": 0.45,
+      "ux_willingness": 0.55,
+      "comprehension": 0.85,
+      "distractibility": 0.35,
+      "commitment_anxiety": 0.4,
+      "uncertainty_aversion": 0.63
+    },
+    "peter": {
+      "budget_pressure": 0.703,
+      "value_orientation": 0.517,
+      "complexity_overwhelm": 0.858,
+      "advisor_lean": 0.604,
+      "patience": 0.25,
+      "ux_willingness": 0.271,
+      "comprehension": 0.35,
+      "distractibility": 0.65,
+      "commitment_anxiety": 0.48,
+      "uncertainty_aversion": 0.564
+    }
+  },
+  "persona_prompt_chars": {
+    "judith": 6871,
+    "franz": 7447,
+    "peter": 11082
+  }
+}

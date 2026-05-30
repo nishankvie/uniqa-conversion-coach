@@ -564,11 +564,13 @@ class LLMTeacher:
 
     def __init__(self, model: str | None = None, include_quant: bool = False,
                  include_params: bool = False, stepwise: bool = False,
-                 include_state: bool = False):
+                 include_state: bool = False, capture_steps: bool = False):
         self.include_quant = include_quant
         self.include_params = include_params
         self.stepwise = stepwise
         self.include_state = include_state
+        self.capture_steps = capture_steps   # record per-step (prompt, completion) SFT pairs
+        self.step_log: list[dict] = []
         from openai import OpenAI  # lazy import
         if os.getenv("OPENROUTER_API_KEY"):
             self.client = OpenAI(base_url="https://openrouter.ai/api/v1",
@@ -626,10 +628,14 @@ class LLMTeacher:
                 include_quant=self.include_quant, include_params=self.include_params,
                 include_state=self.include_state, session_context=ctx, intent=intent,
                 disposition=disp, selected_tariff=selected_tariff)
+            raw = self._call(msgs)
             try:
-                out = json.loads(_strip_fences(self._call(msgs)))
+                out = json.loads(_strip_fences(raw))
             except Exception:
                 out = {}
+            if self.capture_steps:
+                self.step_log.append({"persona": persona, "step": step.value,
+                                      "input_messages": msgs, "output": _strip_fences(raw)})
             t += rng.uniform(0.5, 2.0)
             step_evs = out.get("events") if isinstance(out, dict) else None
             done_here = []

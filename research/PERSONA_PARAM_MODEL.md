@@ -1,5 +1,15 @@
 # Parameter-driven persona model — diagnosis + proposal
 
+> **STATUS: persona LLM-agent — LOCKED / DONE (v1).** Stepwise generation + fundamental-factor
+> dials, persona-coherent, ε=0.092–0.10 vs the funnel.py anchors (under the 0.12 gate; all
+> personas convert). Locked params in `prompts/personas/*.params.json` + global-best.
+> Locked dataset: `datasets/persona_v1/` (300 sessions, 1238 per-step SFT pairs).
+> **Active next stage:** distil into 3 fast LOCAL per-step models on Leonardo (`leonardo/`),
+> each validated to be statistically close to this dataset, then swap in for fast iteration
+> + the dynamic coach loop. (Open: Franz's 0.10 conv anchor is a stale price-jump artifact —
+> re-derive if exact per-cell PASS is required.)
+
+
 Empirical write-up of the session-gen conformance loop and the architecture change the
 results force. Raw evidence: `research/findings/iter_{base,quant,params}.md`.
 
