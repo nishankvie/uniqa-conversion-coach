@@ -329,6 +329,23 @@ than corrupt him. Global-best persisted at ε=0.092 with the coherent set.
 (0.20 vs 0.10 — stale anchor). **Practically converged + persona-coherent.** Recommend
 locking these params and (optionally) re-deriving Franz's S6/conversion anchor (§6 option A).
 
+## 5j. Content-driven diversity (from the product reference) — fixes narrow exits
+
+The dials were rich but per-session CONTENT was thin, so exits clustered on ~5 feelings. Using
+the Private-Doctor product reference, added a grounded **scenario layer** (no new dials — the
+"simplify" ask): per-session `coverage_need` (routine visits / therapy / vision / mental-health /
+dental / family-planning / meds / alt-medicine / unsure) and `open_question` (can't tell Start
+vs Optimal / unknown jargon / will-premium-rise / is-my-doctor-in-network / can't-ask-anywhere),
+sampled uniformly for spread. Widget gains a compact `tariff_coverage_brief` (what Start/Optimal
+cover & exclude + jargon + gotchas) so the persona reasons about need-match. Two new grounded
+exits: **`coverage_mismatch`** (my need is excluded / only in a pricier tier) and
+**`unanswered_question`** (concrete question, no interface to ask). New `coverage_reaction_rule`.
+
+**Result (N=40):** ε=0.107 (under gate), overall conv 0.087 ≈ target; exits now span **8**
+grounded categories (unanswered_question 37 · goal_achieved 25 · too_much_effort 17 · cant_grasp
+13 · dissatisfied 12 · coverage_mismatch 3 · distracted 2) with specific, on-product reasons.
+Regenerate `datasets/persona_v1` to carry this diversity into the distillation set.
+
 ## 6. STATUS & DECISION POINT (largely resolved by §5h)
 
 **Decision needed — the per-persona S6 anchors vs reality:**

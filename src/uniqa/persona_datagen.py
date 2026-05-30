@@ -35,7 +35,7 @@ from uniqa.journey import STEP_SCREENS, render_step
 from uniqa.play import ascii_screen
 from uniqa.psyche import init_mind, step_dynamics, evaluate_bounce
 from uniqa.widget import (render_action_space, legal_events, STEP_ACTIONS,
-                          widget_response_model, ux_complexity, TARIFFS)
+                          widget_response_model, ux_complexity, TARIFFS, tariff_coverage_brief)
 from uniqa.scope import premium as _premium, Tariff as _Tariff
 
 _STEP_BY_VALUE = {s.value: s for s in Step}
@@ -215,6 +215,14 @@ _COGNITIVE_MODEL = {
         "a health-insurance purchase online in one sitting is the EXCEPTION (insurance abandons ~84% "
         "of carts) — even decisive shoppers often stop to finish later or check with someone. If your "
         "`visit_goal` was to see the final price/proposal, you may read it here and leave CONTENT."),
+    "coverage_reaction_rule": (
+        "At the tariff/coverage steps, also check whether YOUR `session_instance.coverage_need` is "
+        "met using `tariff_coverage_brief`: if it's EXCLUDED from all tariffs (dental, cosmetic, "
+        "standalone psychotherapy) → leave (coverage_mismatch); if it's only in Optimal/higher and the "
+        "price strains you → upgrade-or-leave tension; if you genuinely can't tell what differs between "
+        "Start and Optimal → package-confusion (cant_grasp / dissatisfied). If you hold an `open_question` "
+        "the interface can't answer and can't resolve it → unanswered_question. Many people carry a "
+        "concrete, specific need or doubt — let it shape your reaction, don't default to a generic one."),
     "decision_rule": (
         "Leave when a state variable crosses your tolerance, via the feeling that fired. Your "
         "`session_instance.visit_goal` (price-check vs research vs ready-to-buy) is your drive to "
@@ -333,7 +341,8 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
         out_schema["state"] = {"attention": "0..1", "satisfaction": "0..1",
                                "effort_left": "0..1", "grasp": "0..1 (how much you actually understood this screen)",
                                "effort_vs_reward": "0..1 (1 = feels worth it, 0 = lots of work for little)"}
-        out_schema["feeling"] = "engaged | distracted | cant_grasp | too_much_effort | dissatisfied | goal_achieved"
+        out_schema["feeling"] = ("engaged | distracted | cant_grasp | too_much_effort | "
+                                 "dissatisfied | goal_achieved | coverage_mismatch | unanswered_question")
         if first:
             out_schema["intent"] = "<what info/outcome you came here to reach>"
         rules += [
@@ -353,6 +362,12 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
             "COMPARE the price or to SEE THE FINAL PRICE/PROPOSAL (not buy today), then once you have "
             "seen the number you came for (the S4 price, or the S6 final price/proposal) you leave "
             "CONTENT — you got what you came for. A calm, satisfied exit, not frustration.",
+            "  • 'coverage_mismatch' — CONTENT: your `session_instance.coverage_need` is NOT covered "
+            "(see `tariff_coverage_brief`): excluded entirely (dental, cosmetic, standalone "
+            "psychotherapy) or only in a tier you won't pay for — you leave because it doesn't fit.",
+            "  • 'unanswered_question' — CONTENT: you have an `open_question` (is X covered? what does "
+            "<term> mean? will the premium rise? is my doctor in-network?) and there is NO interface "
+            "to ask — you leave frustrated, or to go find the answer elsewhere / call.",
             "  • 'engaged' — it delivers what you expected; continue.",
             "If `session_instance.familiarity` says you have been here before, you input data "
             "MECHANICALLY and fast (low dwell, skip reading/tooltips) and beeline to the price.",
@@ -368,6 +383,7 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
         "ui_ascii": ascii_screen(step),
         "action_space": render_action_space(step),
         "ux_complexity_here": ux_complexity(step),
+        **({"tariff_coverage_brief": tariff_coverage_brief()} if include_state and step is Step.TARIFF_SELECT else {}),
         **(_real_prices_block(step, disposition) if include_state else {}),
         **(_final_price_block(disposition, selected_tariff) if include_state and step is Step.PERSONAL_DATA else {}),
         **({"cognitive_model": _COGNITIVE_MODEL} if include_state else {}),
@@ -714,6 +730,18 @@ _INSTANCE_AXES = {
     "price_expectation": ["expects it to be cheap", "flexible on price", "prepared for a premium price"],
     "advisor_need_today": ["wants human reassurance before committing", "happy to proceed alone today"],
     "screening_confidence": ["comfortable with forms/health questions", "a bit uncertain", "anxious about it"],
+    # CONTENT diversity (grounded in the product reference): what THIS user specifically needs
+    # / wants to know. Sampled uniformly for max spread → diverse, grounded drop-off reasons.
+    "coverage_need": ["just routine GP/specialist visits", "physiotherapy or other therapy",
+                      "glasses / vision / laser eye surgery", "psychotherapy / mental-health support",
+                      "dental work", "family planning / pregnancy", "lots of medications",
+                      "alternative medicine", "not really sure what they need"],
+    "open_question": ["no specific question",
+                      "wants to know if a specific treatment is covered, but can't ask anywhere",
+                      "doesn't understand a term (Heilbehelfe / Refraktive Augen-OP / Schulmedizin)",
+                      "can't tell what really differs between Start and Optimal",
+                      "worried the premium will rise later",
+                      "wants to know if their own doctor is in-network"],
 }
 
 

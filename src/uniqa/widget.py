@@ -62,6 +62,28 @@ def ux_complexity(step: Step) -> dict:
     return UX_COMPLEXITY.get(step, {"grade": "medium", "load": 0.5, "note": ""})
 
 
+def tariff_coverage_brief() -> dict:
+    """Compact, REAL coverage facts (Private_Doctor_Tariff_Product_Reference) so the persona
+    can reason about whether THEIR specific need is met — and notice there's no way to ask a
+    custom coverage question. Grounds content-driven drop-offs (mismatch / package confusion)."""
+    return {
+        "start_covers": "GP & specialist visits (conventional + alternative medicine), telemedicine, "
+            "diagnostics (X-ray/CT/MRI/lab), outpatient surgery (NOT eye laser), preventive checkups, "
+            "medications €280/yr, vaccinations. Annual max €1,400.",
+        "start_excludes": "physiotherapy, psychotherapy, occupational/speech therapy, osteopathy/massage, "
+            "medical aids (Heilbehelfe), glasses/contacts, laser eye surgery.",
+        "optimal_adds": "therapies incl. physio & psychotherapy (€560/yr), medical aids + glasses/contacts "
+            "+ laser eye surgery, double medications (€560), higher doctor cover (€1,400). Annual max €2,800.",
+        "never_covered_any_tariff": "dental / oral surgery, cosmetic procedures, gym memberships, "
+            "standalone psychotherapy, strength training, alcohol/substance conditions.",
+        "jargon": {"Refraktive Augen-OP": "laser eye surgery", "Heilbehelfe": "medical aids (crutches, braces)",
+                   "Schulmedizin": "conventional medicine", "Alternativmedizin": "alternative/complementary medicine"},
+        "gotchas": "9-month waiting period for pregnancy/childbirth; premiums can rise ~0–13%/yr; "
+            "upgrade Start→Optimal allowed only after 3 years. There is NO interface here to ask a "
+            "custom question (e.g. 'is my treatment covered?', 'is my doctor in-network?').",
+    }
+
+
 # ─── Action space ─────────────────────────────────────────────────────────────
 
 class ActionKind:
