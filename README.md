@@ -93,8 +93,9 @@ Step-6 ≈ 78 %.
     ├── AUTORESEARCH.md           ← self-improving Coach: loop, assumption A1, certificate
     ├── PSYCHE_WALKTHROUGH.md     ← first-person trace of the real screenshotted funnel
     ├── FUNNEL_AUTOPSY.md         ← screen-by-screen drop-off analysis
+    ├── PERSONA_TRAIN_PLAN.md     ← persona/coach train plan (H1: fine-tune MiniCPM5-1B)
     ├── PERSONA_MODEL_PLAN.md     ← learned persona model build plan + data provenance
-    ├── PERSONA_TLM_DESIGN.md     ← persona-TLM model design, proof, calibration
+    ├── PERSONA_TLM_DESIGN.md     ← tiny-TLM design (baseline + Z3 calibration anchor)
     ├── TLM_RESEARCH.md           ← trajectory-language-model prior art + feasibility
     ├── GDPR_AI_ACT_SPEC.md       ← EU AI Act + GDPR compliance framing
     └── RESEARCH_insurance_conversion.md  ← conversion-optimization research brief

@@ -1,5 +1,10 @@
 # Sub-plan: the Persona Model
 
+> **Superseded as the primary path by [`PERSONA_TRAIN_PLAN.md`](PERSONA_TRAIN_PLAN.md)**
+> (H1 = fine-tune MiniCPM5-1B from an OpenRouter teacher). This doc remains the
+> build-plan + assumptions register for the learned persona model; the tiny-TLM
+> route it describes is now the baseline, not the headline.
+
 How we build a persona model that emits realistic event feeds and is **trainable
 against the known funnel metrics**. Full model design is in
 [`PERSONA_TLM_DESIGN.md`](PERSONA_TLM_DESIGN.md) (Opus). This doc is the build
