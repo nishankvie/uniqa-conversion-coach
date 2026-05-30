@@ -188,10 +188,12 @@ def render_capture_view():
                             format_func=lambda p: PERSONA_META[p]["label"])
         st.caption(PERSONA_META[hint]["blurb"])
         if st.button("⏺ Start / reset capture", use_container_width=True):
+            for k in [k for k in list(st.session_state) if k.startswith(("cap_", "ms_"))]:
+                del st.session_state[k]
             rec = SessionRecorder(persona_hint=hint)
             rec.enter(STEPS[0].value)
             st.session_state.update(rec=rec, cap_i=0, cap_done=False, cap_term=None,
-                                    cap_final_shown=False)
+                                    cap_final_shown=False, cap_away=False)
 
     if "rec" not in st.session_state:
         st.info("Pick the persona you'll role-play in the sidebar, then **⏺ Start capture** — "
@@ -240,6 +242,19 @@ def render_capture_view():
         step = STEPS[i]
         st.markdown(f"#### Step {i+1}/{len(STEPS)} — `{step.value}`")
         st.caption("Take your time — dwell is recorded as real seconds.")
+
+        # if the user switched away, the tab is inactive until they re-activate it
+        if st.session_state.get("cap_away"):
+            st.divider()
+            st.warning("🪟 You're on another tab — this page is inactive.")
+            if st.button("↩ Activate this tab (I'm back)", use_container_width=True):
+                away_s = round(rec.now() - st.session_state.get("cap_away_t", rec.now()), 2)
+                rec.tab_back(step.value, away_s)
+                st.session_state["cap_away"] = False
+                st.rerun()
+            if st.button("✕ Close the page (didn't come back)", use_container_width=True):
+                advance(terminal="abandon:closed_tab")
+            return
 
         # visual attention: each element you mark logs a real-timestamped hover
         hovs = hoverables(step)
@@ -315,11 +330,17 @@ def render_capture_view():
 
         # persistent exit controls — a real user can bounce or get distracted anywhere
         st.divider()
-        x1, x2 = st.columns(2)
-        if x1.button("🪟 Switch to another tab / distracted", use_container_width=True,
-                     help="Logs a session_gap; your real time-away is captured in the timestamps."):
-            rec.tab_away(step.value); st.rerun()
-        if x2.button("✕ Leave / close page", use_container_width=True,
+        x1, x2, x3 = st.columns(3)
+        if x1.button("🪟 Switch to another tab", use_container_width=True,
+                     help="Logs tab_blur; you re-activate the tab when you come back (real time-away captured)."):
+            rec.tab_away(step.value)
+            st.session_state["cap_away"] = True
+            st.session_state["cap_away_t"] = rec.now()
+            st.rerun()
+        if x2.button("🔗 Leave via external link", use_container_width=True,
+                     help="Navigate away to another site (you're inside the UNIQA page)."):
+            advance(terminal="abandon:external_link")
+        if x3.button("✕ Leave / close page", use_container_width=True,
                      help="Abandon here — the drop-off the Coach exists to prevent."):
             advance(terminal="abandon:closed_page")
 

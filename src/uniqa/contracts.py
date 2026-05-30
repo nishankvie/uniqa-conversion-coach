@@ -60,6 +60,8 @@ class EventType(Enum):
     SCROLL         = "scroll"
     IDLE           = "idle"              # dwell with no input
     SESSION_GAP    = "session_gap"       # returned after a long pause
+    TAB_BLUR       = "tab_blur"          # switched away to another tab (attention left)
+    TAB_FOCUS      = "tab_focus"         # re-activated this tab; value = seconds away
     CANCEL_HOVER   = "cancel_hover"
     WIDGET_SHOWN   = "widget_shown"      # coach-originated, echoed back
     WIDGET_CTA     = "widget_cta"        # user clicked the widget CTA

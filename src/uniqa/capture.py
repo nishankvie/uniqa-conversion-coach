@@ -73,7 +73,8 @@ class SessionRecorder:
     def keystrokes(self, step, field_, n):      return self.record(EventType.KEYSTROKE, step, target=field_, value=n)
     def price_reveal(self, step, tariff, eur):  return self.record(EventType.PRICE_REVEAL, step, target=tariff, value=eur)
     def nav_back(self, step):                   return self.record(EventType.NAV_BACK, step)
-    def tab_away(self, step):                   return self.record(EventType.SESSION_GAP, step, value="tab_switch")
+    def tab_away(self, step):                   return self.record(EventType.TAB_BLUR, step, value="tab_switch")
+    def tab_back(self, step, seconds):          return self.record(EventType.TAB_FOCUS, step, value=seconds)
     def convert(self, step):                    return self.record(EventType.CONVERT, step, value="online_purchase")
     def abandon(self, step, reason):            return self.record(EventType.ABANDON, step, value=reason)
 
