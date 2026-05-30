@@ -15,6 +15,7 @@ from __future__ import annotations
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import json
 import random
 import pandas as pd
 import streamlit as st
@@ -152,16 +153,145 @@ def render_token(tok, main):
                       f"<b>{tok.payload.get('reason')}</b></div>", unsafe_allow_html=True)
 
 
+def render_capture_view():
+    """Walk the real funnel as a human; every action is timestamped with real dwell."""
+    from uniqa.capture import SessionRecorder
+    from uniqa.widget import TARIFFS, SV_OPTIONS
+    from uniqa.contracts import EventType
+    from uniqa.funnel import Step
+
+    STEPS = [Step.COVERAGE_TYPE, Step.INSURED, Step.PERSONAL_INFO,
+             Step.TARIFF_SELECT, Step.PERSONAL_DATA]
+
+    with st.sidebar:
+        hint = st.selectbox("Role-play which persona?", list(PERSONAS),
+                            format_func=lambda p: PERSONA_META[p]["label"])
+        st.caption(PERSONA_META[hint]["blurb"])
+        if st.button("⏺ Start / reset capture", use_container_width=True):
+            rec = SessionRecorder(persona_hint=hint)
+            rec.enter(STEPS[0].value)
+            st.session_state.update(rec=rec, cap_i=0, cap_done=False, cap_term=None,
+                                    cap_final_shown=False)
+
+    if "rec" not in st.session_state:
+        st.info("Pick the persona you'll role-play in the sidebar, then **⏺ Start capture** — "
+                "click through the real funnel and your actions are logged with real timing.")
+        return
+
+    rec = st.session_state["rec"]
+    i = st.session_state["cap_i"]
+
+    def advance(terminal=None):
+        if terminal:
+            st.session_state.update(cap_done=True, cap_term=terminal)
+        else:
+            st.session_state["cap_i"] = i + 1
+            if st.session_state["cap_i"] < len(STEPS):
+                rec.enter(STEPS[st.session_state["cap_i"]].value)
+            else:
+                rec.enter(Step.PURCHASE.value)
+                rec.convert(Step.PURCHASE.value)
+                st.session_state.update(cap_done=True, cap_term="convert")
+        st.rerun()
+
+    left, right = st.columns([3, 1])
+    with right:
+        st.markdown("### 📝 Live log")
+        st.caption(f"`{rec.session_id}` · {rec.now()}s elapsed")
+        st.dataframe([{"t": e.t, "type": e.type.value, "step": e.step.split('_', 1)[-1],
+                       "target": e.target, "val": e.value} for e in rec.log.events],
+                     height=420, use_container_width=True)
+
+    with left:
+        if st.session_state["cap_done"]:
+            term = st.session_state["cap_term"]
+            (st.success if term == "convert" else st.error)(f"Session captured — outcome: {term}")
+            path = rec.save()
+            st.markdown(f"Saved to `{path}`. Compare against the persona bot:")
+            st.code(f"python -m uniqa.compare {path} --persona {rec.persona_hint}", language="bash")
+            st.download_button("⬇ Download log JSON",
+                               data=json.dumps(rec.to_dict(), indent=2, ensure_ascii=False),
+                               file_name=f"{rec.session_id}.json", mime="application/json")
+            st.json(rec.to_dict())
+            return
+
+        step = STEPS[i]
+        st.markdown(f"#### Step {i+1}/{len(STEPS)} — `{step.value}`")
+        st.caption("Take your time — dwell is recorded as real seconds.")
+
+        if step is Step.COVERAGE_TYPE:
+            c1, c2 = st.columns(2)
+            if c1.button("Bei Arztbesuchen ✅", use_container_width=True):
+                rec.select(step.value, "bei_arztbesuchen"); advance()
+            if c2.button("Im Krankenhaus (out of scope)", use_container_width=True):
+                rec.select(step.value, "im_krankenhaus"); rec.nav_back(step.value)
+                advance(terminal="abandon:advisor_route(hospital)")
+
+        elif step is Step.INSURED:
+            c1, c2 = st.columns(2)
+            if c1.button("Ich selbst ✅", use_container_width=True):
+                rec.select(step.value, "ich_selbst"); advance()
+            if c2.button("Andere Personen (out of scope)", use_container_width=True):
+                rec.select(step.value, "andere_personen")
+                advance(terminal="abandon:advisor_route(others)")
+
+        elif step is Step.PERSONAL_INFO:
+            dob = st.text_input("Geburtsdatum (TT.MM.JJJJ)", key="cap_dob")
+            sv = st.selectbox("Sozialversicherung", [""] + SV_OPTIONS, key="cap_sv")
+            if st.button("Weiter →", use_container_width=True):
+                if dob:
+                    rec.keystrokes(step.value, "date_of_birth", len(dob))
+                if sv:
+                    rec.record(EventType.DROPDOWN_OPEN, step.value, target="sv_number")
+                    rec.select(step.value, "sv_number", value=sv)
+                advance()
+
+        elif step is Step.TARIFF_SELECT:
+            st.caption("Provisional premium (final price comes after health questions).")
+            for col, t in zip(st.columns(len(TARIFFS)), TARIFFS):
+                badge = "online ✅" if t["online"] else "Beratung ☑"
+                if col.button(f"{t['name']}\n€{t['price_eur']}\n{badge}", use_container_width=True):
+                    if t["online"]:
+                        rec.price_reveal(step.value, t["id"], t["price_eur"])
+                        rec.select(step.value, t["id"]); advance()
+                    else:
+                        rec.record(EventType.PREMIUM_CLICK, step.value, target=t["id"])
+                        st.warning(f"{t['name']} requires advisory — pick Start or Optimal to finish online.")
+            if st.button("‹ Zurück", key="cap_back_s4"):
+                rec.nav_back(step.value)
+
+        elif step is Step.PERSONAL_DATA:
+            st.caption("Health questions → final price.")
+            email = st.text_input("E-Mail", key="cap_email")
+            health = st.radio("Pre-existing conditions?", ["no", "yes"], key="cap_health")
+            if not st.session_state.get("cap_final_shown") and st.button("Endpreis berechnen", use_container_width=True):
+                rec.keystrokes(step.value, "email", len(email or ""))
+                rec.record(EventType.SUBMIT, step.value, target="health", value=health)
+                rec.price_reveal(step.value, "optimal_final", 71.0 if health == "yes" else 68.14)
+                st.session_state["cap_final_shown"] = True
+                st.rerun()
+            if st.session_state.get("cap_final_shown"):
+                st.metric("Final premium", "€71.00/mo" if health == "yes" else "€68.14/mo")
+                c1, c2 = st.columns(2)
+                if c1.button("Abschließen ✅", use_container_width=True):
+                    advance()
+                if c2.button("Abbrechen", use_container_width=True):
+                    advance(terminal="abandon:price_delta")
+
+
 # ─── Sidebar controls ─────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown(f"### Controls")
-    view = st.radio("View", ["Live journey", "A/B uplift"], index=0)
+    view = st.radio("View", ["Play & capture", "Live journey", "A/B uplift"], index=0)
     st.divider()
 
 view = view  # noqa
 
 # ════════════════════════════════════════════════════════════════════════════════
-if view == "Live journey":
+if view == "Play & capture":
+    render_capture_view()
+
+elif view == "Live journey":
     with st.sidebar:
         persona = st.selectbox("Persona", list(PERSONAS),
                                format_func=lambda p: PERSONA_META[p]["label"])
@@ -215,7 +345,7 @@ if view == "Live journey":
                  f"messages used: {trace.message_count}/3{extra}")
 
 # ════════════════════════════════════════════════════════════════════════════════
-else:
+elif view == "A/B uplift":
     with st.sidebar:
         n = st.select_slider("Population (N)", options=[500, 1000, 2000, 5000, 10000], value=2000)
         seed = st.number_input("Seed", value=42, step=1)
