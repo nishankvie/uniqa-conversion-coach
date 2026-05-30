@@ -1,5 +1,26 @@
-import React, { useEffect, useReducer, useRef, useState } from "react";
+import React, { useEffect, useReducer, useRef, useState, lazy, Suspense } from "react";
 import { Recorder, HOVER_MS } from "./capture.js";
+
+// ── FunnelTwin (lazy; keep original capture build intact if twin missing) ─
+const FunnelTwin = lazy(() => import("./twin/FunnelTwin.tsx"));
+// CoachLayer is loaded via dynamic import inside CoachLayerInner (below).
+
+// Demo decisions — imported at module level (JSON, no side-effects)
+import s4PriceReframe   from "./coach/decisions/s4_price_reframe.json";
+import s4PremiumClicked from "./coach/decisions/s4_premium_clicked.json";
+import s4PeterCallback  from "./coach/decisions/s4_peter_callback.json";
+import s6FormHelper     from "./coach/decisions/s6_form_helper.json";
+import s7SaveProgress   from "./coach/decisions/s7_save_progress.json";
+
+const DEMO_DECISIONS = [
+  { label: "💶 S4: Price Reframe",   decision: s4PriceReframe },
+  { label: "⭐ S4: Premium Clicked", decision: s4PremiumClicked },
+  { label: "📞 S4: Peter Callback",  decision: s4PeterCallback },
+  { label: "❓ S6: Form Helper",     decision: s6FormHelper },
+  { label: "💾 S7: Save Progress",   decision: s7SaveProgress },
+];
+
+const USE_FUNNEL_TWIN = new URLSearchParams(window.location.search).get("mode") === "twin";
 
 const PERSONAS = {
   judith: "Judith — Rising Hybrid",
@@ -12,14 +33,12 @@ const STEP_ID = {
   S4: "S4_TARIFF_SELECT", S6: "S6_PERSONAL_DATA",
 };
 const ORDER = ["S1", "S2", "S3", "S4", "S6"];
-
 const TARIFFS = [
   ["start", "Start", 38.74, true], ["optimal", "Optimal", 68.14, true],
   ["opt_plus", "Opt. Plus", 96.66, false], ["premium", "Premium", 140.15, false],
 ];
 const ROWS = ["arztleistungen", "medikamente", "therapien", "hilfsmittel", "augen_op"];
 
-// dwell-over-element -> a high-level hover the moment the cursor leaves
 function Hoverable({ rec, elem, ev = "hover", className, style, children, onClick }) {
   const enter = useRef(0);
   return (
@@ -34,34 +53,56 @@ function Hoverable({ rec, elem, ev = "hover", className, style, children, onClic
   );
 }
 
+// ── Wrapper that creates the stream and mounts CoachLayer ──────────────────────
+function CoachLayerWrapper({ recorder, streamRef }) {
+  return (
+    <Suspense fallback={null}>
+      <CoachLayerInner recorder={recorder} streamRef={streamRef} />
+    </Suspense>
+  );
+}
+
+// Separate inner component so lazy can resolve before rendering
+function CoachLayerInner({ recorder, streamRef }) {
+  // Import CoachLayer and decisionStream lazily
+  const [CoachLayer, setCoachLayer] = useState(null);
+  useEffect(() => {
+    import("./coach/CoachLayer.tsx").then((m) => setCoachLayer(() => m.CoachLayer));
+  }, []);
+  useEffect(() => {
+    if (streamRef.current) return;
+    import("./coach/decisionStream.ts").then((m) => {
+      if (!streamRef.current) streamRef.current = m.createLocalMockStream();
+    });
+  }, []);
+  if (!CoachLayer || !streamRef.current) return null;
+  return <CoachLayer stream={streamRef.current} recorder={recorder} />;
+}
+
 export default function App() {
   const [persona, setPersona] = useState("franz");
   const [step, setStep] = useState("S1");
-  const [done, setDone] = useState(null); // {term, url, payload}
+  const [done, setDone] = useState(null);
   const [final, setFinal] = useState(null);
   const [form, setForm] = useState({ dob: "", sv: "", email: "", health: "no" });
   const [, force] = useReducer((x) => x + 1, 0);
   const recRef = useRef(null);
+  const streamRef = useRef(null);
 
-  // (re)start whenever persona changes
   useEffect(() => {
     const rec = new Recorder(persona);
     rec.onChange = force;
     recRef.current = rec;
     setForm({ dob: "", sv: "", email: "", health: "no" });
-    setFinal(null);
-    setDone(null);
-    setStep("S1");
+    setFinal(null); setDone(null); setStep("S1");
     rec.stepEnter(STEP_ID.S1);
   }, [persona]);
 
-  // global REAL mouse + tab listeners
   useEffect(() => {
     const mv = (e) => recRef.current && recRef.current.onMouseMove(e.clientX, e.clientY);
     const vis = () => {
       const rec = recRef.current; if (!rec) return;
-      if (document.visibilityState === "hidden") rec.tabBlur();
-      else rec.tabFocus();
+      if (document.visibilityState === "hidden") rec.tabBlur(); else rec.tabFocus();
     };
     window.addEventListener("mousemove", mv, { passive: true });
     document.addEventListener("visibilitychange", vis);
@@ -76,33 +117,90 @@ export default function App() {
   const rec = recRef.current;
   if (!rec) return null;
 
+  // ── FunnelTwin + CoachLayer mode (?mode=twin) ──────────────────────────────
+  if (USE_FUNNEL_TWIN) {
+    return (
+      <div className="app">
+        <header>
+          <b>🧭 UNIQA funnel — FunnelTwin + Coach</b>
+          <label>Role-play:&nbsp;
+            <select value={persona} onChange={(e) => setPersona(e.target.value)}>
+              {Object.entries(PERSONAS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </label>
+        </header>
+
+        <div className="wrap">
+          <div className="screen">
+            <Suspense fallback={<div>Loading FunnelTwin…</div>}>
+              <FunnelTwin recorder={rec} onTerminal={(t) => console.log("terminal:", t)} />
+            </Suspense>
+            {/* CoachLayer portals into #coach-layer (index.html) */}
+            <CoachLayerWrapper recorder={rec} streamRef={streamRef} />
+          </div>
+
+          <div className="side">
+            {/* Coach demo buttons — fire each demo decision into the stream */}
+            <div className="sidehead">🎯 Coach Demo</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "4px 0 8px" }}>
+              {DEMO_DECISIONS.map(({ label, decision }) => (
+                <button
+                  key={label}
+                  className="ghost"
+                  style={{ textAlign: "left", fontSize: 12, padding: "4px 8px", cursor: "pointer" }}
+                  onClick={() => {
+                    if (streamRef.current) streamRef.current.fire(decision);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="sidehead">📋 High-level log</div>
+            <table><tbody>
+              {rec.events.slice(-40).map((e, i) => (
+                <tr key={i}>
+                  <td className="t">{e.t}</td><td className="ty">{e.type}</td>
+                  <td>{(e.step || "").split("_")[0]}</td>
+                  <td>{e.target || ""}</td><td>{e.value ?? ""}</td>
+                </tr>
+              ))}
+            </tbody></table>
+
+            <div className="exit" style={{ marginTop: 8 }}>
+              <button className="ghost" onClick={() => rec.emit("abandon", null, "external_link")}>🔗 Leave</button>
+              <button className="ghost" onClick={() => rec.emit("abandon", null, "closed_page")}>✕ Close</button>
+              <span className="hint">tab switch captured automatically</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Legacy capture app (unchanged) ────────────────────────────────────────
   function advance() {
     const i = ORDER.indexOf(step);
     if (i + 1 < ORDER.length) { const k = ORDER[i + 1]; setStep(k); rec.stepEnter(STEP_ID[k]); }
     else finishConvert();
   }
   function finishConvert() {
-    rec.closeTone();
-    rec.curStep = "S7_PURCHASE";
-    rec.emit("step_enter");
-    rec.emit("convert", null, "online_purchase");
+    rec.closeTone(); rec.curStep = "S7_PURCHASE";
+    rec.emit("step_enter"); rec.emit("convert", null, "online_purchase");
     finish("convert");
   }
   function leave(reason) {
-    rec.closeTone();
-    rec.emit("abandon", null, reason);
-    finish("abandon:" + reason);
+    rec.closeTone(); rec.emit("abandon", null, reason); finish("abandon:" + reason);
   }
   function finish(term) {
     const payload = rec.payload();
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
     setDone({ term, url, payload });
   }
-
   function onSelect(target, isTariff = false) {
     if (isTariff) rec.emit("price_reveal", target, TARIFFS.find((t) => t[0] === target)[2]);
-    rec.emit("select", target);
-    advance();
+    rec.emit("select", target); advance();
   }
   function onNext() {
     if (form.dob) rec.emit("keystroke", "date_of_birth", form.dob.length);
@@ -113,8 +211,7 @@ export default function App() {
     if (form.email) rec.emit("keystroke", "email", form.email.length);
     rec.emit("submit", "health", form.health);
     const p = form.health === "yes" ? 71.0 : 68.14;
-    rec.emit("price_reveal", "optimal_final", p);
-    setFinal(p);
+    rec.emit("price_reveal", "optimal_final", p); setFinal(p);
   }
 
   return (
@@ -128,7 +225,6 @@ export default function App() {
         </label>
         <span className="clock">{rec.now()}s</span>
       </header>
-
       <div className="wrap">
         <div className="screen">
           {done ? <Done done={done} /> : (
@@ -144,7 +240,6 @@ export default function App() {
             </>
           )}
         </div>
-
         <div className="side">
           <div className="sidehead">📋 High-level log <span className="tone">{rec.lastTone()}</span></div>
           <table><tbody>
