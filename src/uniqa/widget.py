@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from uniqa.funnel import Step
 from uniqa.contracts import EventType
+from uniqa.scope import TARIFF_PRICE_EUR, Tariff
 
 PROGRESS = ["Angaben", "Produkt", "Empfehlung", "Abschluss"]
 
@@ -113,6 +114,53 @@ def legal_events(step: Step) -> set[str]:
 
 def tariff_by_id(tid: str) -> dict | None:
     return next((t for t in TARIFFS if t["id"] == tid), None)
+
+
+def widget_response_model() -> dict:
+    """How the STATIC widget reacts to each action — the funnel state machine the LLM
+    must reason against, so generated sessions respect real widget responses (what
+    advances, what blocks, what reveals a price, what hands off to an advisor).
+
+    This is UI mechanics (the immutable app), NOT a churn/conversion target.
+    """
+    start, optimal = TARIFF_PRICE_EUR[Tariff.START], TARIFF_PRICE_EUR[Tariff.OPTIMAL]
+    return {
+        "conversion_definition": (
+            "A conversion = ONLINE purchase of Start or Optimal on the "
+            "'Bei Arztbesuchen' + 'Ich selbst' path. Advisor handoff or leaving the "
+            "page is NOT a conversion."
+        ),
+        "transitions": {
+            "S1_COVERAGE_TYPE": {
+                "select bei_arztbesuchen, then Weiter": "advances to S2",
+                "select im_krankenhaus": "OUT OF SCOPE → advisor handoff; online session ends, no online purchase",
+                "Weiter with nothing selected": "inline validation_error, stays on S1",
+            },
+            "S2_INSURED_PERSONS": {
+                "select ich_selbst, then Weiter": "advances to S3",
+                "select andere_personen": "OUT OF SCOPE → advisor handoff",
+            },
+            "S3_PERSONAL_INFO": {
+                "valid DOB + pick Sozialversicherung, then Weiter": "advances to S4 (the price step)",
+                "invalid/empty DOB or SV, then Weiter": "inline validation_error, stays on S3",
+            },
+            "S4_TARIFF_SELECT": {
+                "select start": f"reveals Start ≈€{start}/mo (price_reveal) and advances to S6",
+                "select optimal": f"reveals Optimal ≈€{optimal}/mo (price_reveal) and advances to S6",
+                "click opt_plus or premium": "shows 'Beratung erforderlich' (advisory-only) — does NOT advance; must pick Start/Optimal to finish online",
+                "open (i) tooltip on a coverage row": "shows a one-line explanation; stays on S4",
+                "Weiter with no tariff selected": "validation_error",
+            },
+            "S6_PERSONAL_DATA": {
+                "fill name/email/SV + health answers, then submit": "computes & reveals the FINAL monthly price (price_reveal); it is ≈ the provisional price but can be higher once health answers are entered",
+                "Abschließen after the final price": "ONLINE PURCHASE → convert",
+            },
+            "any_step": {
+                "close tab / external link / leave": "abandon (not a conversion)",
+                "switch browser tab and return": "tab_blur then tab_focus (time away is captured)",
+            },
+        },
+    }
 
 
 def render_action_space(step: Step) -> dict:

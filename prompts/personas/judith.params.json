@@ -1,0 +1,8 @@
+{
+  "price_shock_s4": 0.70,
+  "complexity_overwhelm": 0.30,
+  "final_price_sensitivity_s6": 0.55,
+  "advisor_lean": 0.60,
+  "patience": 0.55,
+  "online_completion": 0.35
+}

@@ -34,7 +34,8 @@ from uniqa.personas import PERSONA_BRIEFINGS
 from uniqa.journey import STEP_SCREENS, render_step
 from uniqa.play import ascii_screen
 from uniqa.psyche import init_mind, step_dynamics, evaluate_bounce
-from uniqa.widget import render_action_space, legal_events, STEP_ACTIONS
+from uniqa.widget import (render_action_space, legal_events, STEP_ACTIONS,
+                          widget_response_model)
 
 _STEP_BY_VALUE = {s.value: s for s in Step}
 
@@ -76,6 +77,40 @@ def agent_persona_prompt(persona: str) -> str:
     brief = PERSONA_BRIEFINGS.get(persona)
     return brief.read_text(encoding="utf-8") if brief and brief.exists() else f"You are {persona}."
 
+
+# Curated, behaviour-only quantitative characteristics (population averages for people
+# like this persona). ESCALATION lever: injected only when base prompt under-conforms.
+# Deliberately EXCLUDES every funnel-outcome stat (no per-step bounce, no conversion
+# rate, no 30/50/20 mix) — only persona-level propensities that should *shape*, not
+# dictate, behaviour. Allowlist is explicit (no raw json dump).
+_QUANT_ALLOW = {
+    "online_behavior": ["ever_purchased_insurance_online_pct",
+                        "likely_to_purchase_online_next_3y_pct"],
+    "insurance_behavior": ["switch_willingness_pct", "net_promoter_score",
+                           "general_attitude_positive_pct", "monthly_insurance_spend_eur"],
+    "purchase_split_pct": ["summary_purchase_online", "summary_purchase_in_person"],
+}
+
+
+def quant_metrics_block(persona: str) -> str:
+    """Compact text block of allowlisted behavioural metrics from personas.json."""
+    try:
+        d = json.loads((_TRACK / "personas.json").read_text())
+        s = d["personas"][_SEGMENT[persona]]
+    except Exception:
+        return ""
+    picked = {}
+    for group, keys in _QUANT_ALLOW.items():
+        g = s.get(group, {})
+        for k in keys:
+            if k in g:
+                picked[k] = g[k]
+    if not picked:
+        return ""
+    return ("\n\nBEHAVIOURAL TENDENCIES of people like you (population averages — general "
+            "propensities, NOT a target for this one session):\n"
+            + json.dumps(picked, ensure_ascii=False))
+
 # in-scope steps that can bounce (skip START / PURCHASE terminal)
 _BOUNCE_STEPS = [Step.PERSONAL_INFO, Step.TARIFF_SELECT, Step.ADDON_SELECT, Step.PERSONAL_DATA]
 
@@ -107,13 +142,62 @@ def build_step_prompt(persona: str, step: Step, atoms: list[dict] | None = None,
     ]
 
 
-def build_session_prompt(persona: str) -> list[dict]:
+# Parameter-driven persona dials (ITER 2). Behavioural traits in [0,1], stored in
+# editable prompts/personas/<persona>.params.json. Rendered to GRADED LANGUAGE (never
+# raw numbers, never a churn target) so the agent reasons with a 'pressure', not a quota.
+# A tuning loop nudges these dials until the funnel stats EMERGE (research/run.py --params).
+_PARAM_LEVELS = [(0.2, "very low"), (0.4, "low"), (0.6, "moderate"), (0.8, "high"), (1.01, "very high")]
+_PARAM_VERB = {"very low": "almost never", "low": "rarely", "moderate": "sometimes",
+               "high": "often", "very high": "very often"}
+_PARAM_TEXT = {
+    "price_shock_s4": "First-price shock (S4): {lvl} — when the tariff price FIRST appears and it is above what you hoped, you {verb} leave right there (to think / compare / call) instead of continuing.",
+    "complexity_overwhelm": "Complexity overwhelm: {lvl} — too many tariffs, jargon and no clear recommendation {verb} make you give up early (S3 or S4).",
+    "final_price_sensitivity_s6": "Final-price sensitivity (S6): {lvl} — if the final price is higher than the estimate, you {verb} abandon at the very end.",
+    "advisor_lean": "Advisor lean: {lvl} — you {verb} prefer to stop the online flow and deal with a real person instead.",
+    "patience": "Patience: {lvl} — with LOW patience long forms {verb} exhaust you into leaving; with high patience they rarely do.",
+    "online_completion": "Online-completion drive: {lvl} — you {verb} push all the way through and finish the purchase online.",
+}
+
+
+def _bucket(x: float) -> str:
+    return next(lbl for thr, lbl in _PARAM_LEVELS if x < thr)
+
+
+def params_block(persona: str) -> str:
+    """Render the persona's behavioural dials as graded prompt language (no numbers)."""
+    f = _PROMPT_DIR / f"{persona}.params.json"
+    if not f.exists():
+        return ""
+    try:
+        params = json.loads(f.read_text())
+    except Exception:
+        return ""
+    lines = []
+    for key, tmpl in _PARAM_TEXT.items():
+        if key in params:
+            lvl = _bucket(float(params[key]))
+            lines.append("- " + tmpl.format(lvl=lvl.upper(), verb=_PARAM_VERB[lvl]))
+    if not lines:
+        return ""
+    return ("\n\nBEHAVIOURAL DIALS — how strongly each pressure acts on you; let them govern "
+            "your stay-or-leave choices at each step:\n" + "\n".join(lines))
+
+
+def build_session_prompt(persona: str, include_quant: bool = False,
+                         include_params: bool = False) -> list[dict]:
     """
     WHOLE-SESSION prompt: one call → the entire journey as timestamped events with
     per-event motivation. Cheaper + more coherent than per-step prompting, and lets
     the model reason about pacing (reactive vs engaged vs distracted) across steps.
+
+    include_quant: escalation lever — append allowlisted behavioural metrics (no
+    funnel-outcome stats) when the base prompt under-conforms to the anchors.
     """
     sys = agent_persona_prompt(persona)
+    if include_quant:
+        sys += quant_metrics_block(persona)
+    if include_params:
+        sys += params_block(persona)
     widget = {s.value: {"ui_ascii": ascii_screen(s), "action_space": render_action_space(s)}
               for s in STEP_ACTIONS}
     instruction = {
@@ -132,12 +216,14 @@ def build_session_prompt(persona: str) -> list[dict]:
             "Use keystroke events (value = #keystrokes) and tap events (value = #taps) to reflect REAL UX effort of filling fields — long forms cost more and frustrate impatient personas.",
             "On the tariff step, select_tariff reveals a price (emit price_reveal); clicking opt_plus/premium is a premium_click (advisory-only).",
             "Timestamps matter: small gaps = reactive/engaged, large idle/session_gap = distracted. Pace the session like THIS persona really would.",
-            "Bei Arztbesuchen + Ich selbst + Start/Optimal is the only online-completable path; hospital, other-persons, Opt.Plus/Premium route to an advisor (abandon online).",
+            "Respect widget_response_model: each action has the stated effect. Bei Arztbesuchen + Ich selbst + Start/Optimal is the only online-completable path; hospital, other-persons, Opt.Plus/Premium hand off to an advisor (= online abandon, not a conversion).",
+            "At EACH step make an explicit stay-or-leave decision — ESPECIALLY the moment the FIRST tariff price appears (S4) and at the final price (S6). Do NOT default to continuing just to see what happens next; many real sessions end at the first price screen.",
             "THOUGHTS carry your reasoning. The FIRST event's thought must set context: who is arriving, what triggered this visit, and what you expect/want from the session.",
             "At every price_reveal, the thought must voice EXPECTATION vs REALITY (e.g. 'hoped for ~60, 68 is ok' / 'estimate said 68, now 71 — annoying').",
             "If you abandon, the thought may reveal the gap between your STATED and REAL reason (you might 'just think about it' while the real driver is something specific).",
             "End with exactly one terminal event: convert (online purchase) or abandon (with a value naming why).",
         ],
+        "widget_response_model": widget_response_model(),
         "widget": widget,
     }
     return [
@@ -271,7 +357,10 @@ class LLMTeacher:
     """
     name = "llm"
 
-    def __init__(self, model: str | None = None):
+    def __init__(self, model: str | None = None, include_quant: bool = False,
+                 include_params: bool = False):
+        self.include_quant = include_quant
+        self.include_params = include_params
         from openai import OpenAI  # lazy import
         if os.getenv("OPENROUTER_API_KEY"):
             self.client = OpenAI(base_url="https://openrouter.ai/api/v1",
@@ -297,7 +386,8 @@ class LLMTeacher:
         return r.choices[0].message.content or ""
 
     def session(self, persona: str, rng: random.Random) -> list[dict]:
-        msgs = build_session_prompt(persona)
+        msgs = build_session_prompt(persona, include_quant=self.include_quant,
+                                    include_params=self.include_params)
         try:
             content = _strip_fences(self._call(msgs))
             data = json.loads(content)
@@ -319,10 +409,10 @@ def _strip_fences(s: str) -> str:
     return s.strip()
 
 
-def default_teacher(model: str | None = None) -> Teacher:
+def default_teacher(model: str | None = None, include_quant: bool = False) -> Teacher:
     if os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY"):
         try:
-            return LLMTeacher(model)
+            return LLMTeacher(model, include_quant=include_quant)
         except Exception:
             pass
     return OfflineTeacher()

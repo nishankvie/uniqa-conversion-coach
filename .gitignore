@@ -38,3 +38,6 @@ tictactoe-extension/
 # React capture app (Node)
 webapp/node_modules/
 webapp/dist/
+
+# Research run artifacts (raw generated sessions; reports promoted manually)
+research/runs/
