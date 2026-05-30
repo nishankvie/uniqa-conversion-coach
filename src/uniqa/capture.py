@@ -18,6 +18,25 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from uniqa.contracts import Event, EventType, ActivityLog, new_session_id
+from uniqa.funnel import Step
+from uniqa.widget import legal_events
+
+# Format parity: a captured human event must be in the SAME per-step vocabulary the
+# persona bots are allowed to emit (widget.legal_events). No micro-event spam, no
+# collapse step later — human logs are bot-format by construction.
+_STEP_BY_VALUE = {s.value: s for s in Step}
+
+
+def _assert_legal(etype: EventType, step: str) -> None:
+    s = _STEP_BY_VALUE.get(step)
+    if s is None:
+        return  # unknown step (e.g. S0/S7 helpers) — skip the check
+    allowed = legal_events(s)
+    if etype.value not in allowed:
+        raise ValueError(
+            f"capture: {etype.value!r} is not a legal bot event on {step} "
+            f"(allowed: {sorted(allowed)}). Human logs must match the bot vocabulary."
+        )
 
 
 # Captured sessions land here (gitignored — under _local/).
@@ -41,6 +60,7 @@ class SessionRecorder:
 
     def record(self, etype: EventType, step: str, *, target: str | None = None,
                value=None, thought: str | None = None) -> Event:
+        _assert_legal(etype, step)        # human events stay in the bot's vocabulary
         ev = Event(etype, step, self.now(), target=target, value=value,
                    source=self.source, thought=thought)
         self.log.append(ev)

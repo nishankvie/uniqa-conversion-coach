@@ -101,7 +101,8 @@ def legal_events(step: Step) -> set[str]:
                              EventType.PRICE_HOVER.value, EventType.TOOLTIP_OPEN.value, EventType.TAP.value},
         Step.PERSONAL_DATA: {EventType.KEYSTROKE.value, EventType.FIELD_EDIT.value,
                              EventType.VALIDATION_ERROR.value, EventType.CANCEL_HOVER.value,
-                             EventType.SUBMIT.value, EventType.TAP.value},
+                             EventType.SUBMIT.value, EventType.TAP.value,
+                             EventType.PRICE_REVEAL.value},   # S7 final-price reveal
     }
     return base | per_step.get(step, set())
 
