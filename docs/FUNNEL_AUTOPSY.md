@@ -1,11 +1,38 @@
-# UNIQA Funnel Autopsy — Full Screenshot Analysis
-> 2026-05-30 | Post-CDP spike, 5 screens analyzed
+# UNIQA Funnel Autopsy — drop-off analysis
+> 2026-05-30 | Drop-off analysis of the funnel. For the **static-widget spec**
+> (canonical screens + action space) see `PIPELINE_PLAN.md` §"the static widget"
+> and `src/uniqa/widget.py`; this doc is the *why-they-leave* analysis.
 
 ---
 
-## Screen-by-Screen Breakdown
+## Canonical funnel screens (in order — intro screens included)
 
-### Screen 1 — Tariff Table (66% abandon)
+The in-scope online path per the official funnel doc
+([uniqa-funnel-doc_en.md](https://github.com/Lumos-Data/zero_one_hack_01/blob/main/tracks/insurance-uniqa/uniqa-funnel-doc_en.md)).
+The funnel does **not** start at the tariff table — three low-friction *intro*
+screens come first:
+
+| Step | Phase | Screen | Drop |
+|---|---|---|---|
+| **S1** | Inputs | Where covered? `At doctor visits`✅ / `In hospital`❌ | low |
+| **S2** | Inputs | Who insured? `Myself`✅ / `Other persons`❌ | low |
+| **S3** | Inputs | DOB + Sozialversicherung-Nr (first PII, pre-price) | low–med |
+| **S4** | Product | Tariff table — **provisional** premium (Start €38.74 / Optimal €68.14) | **66%** |
+| ~~S5~~ | Product | Add-on coverage (Sonderklasse) — **hospital path, out of scope** | (24%) |
+| **S6** | Inputs | Health questions (for final premium) | — |
+| **S7** | Recommendation | **Final** premium after health assessment | **78%** |
+| **S12+** | Closing | name/address · start date · payment · consents · confirm | — |
+
+Canonical prices = **€38.74 / €68.14** (Start / Optimal). The deep-dives below come
+from an early CDP capture and show an earlier price snapshot (41,30 / 73,02) and a
+private-doctor add-on screen; treat them as drop-off analysis of the **price + data-
+form** screens, not as the canonical screen order (which is the table above).
+
+---
+
+## Deep-dive: the high-drop screens (early CDP capture)
+
+### S4 — Tariff Table (66% abandon)
 
 ```
 "Welche Leistungen soll Ihre Privatarzt-Versicherung abdecken?"
@@ -36,7 +63,7 @@ Disclaimer:  "Voraussichtliche Prämie — Finale Prämie folgt nach
 
 ---
 
-### Screen 2 — Add-on Upsell (24% abandon) ← CRITICAL TIMING PROBLEM
+### S5 — Add-on Upsell (private-doctor Extra-Schutz) ← CRITICAL TIMING PROBLEM
 
 ```
 "Wünschen Sie Extra-Schutz bei Ihrer Privatarzt-Versicherung?"
@@ -74,7 +101,7 @@ Correct:  Choose → commit personal data → health → FINAL PRICE → BUY →
 
 ---
 
-### Screen 3 — Personal Data Form (78% abandon at health questions) ← WORST STEP
+### S6/S7 — Personal Data + Health Form (78% abandon at health/final price) ← WORST STEP
 
 ```
 "Angaben zu Ihrer Person"
@@ -166,7 +193,7 @@ The SV-number field: add "Auf Ihrer e-Card" callout with e-card image
 
 ---
 
-### Screen 4 — Advisor Channel Selector
+### Advisor Channel Selector (out-of-scope path)
 
 ```
 "Wo soll die Beratung bevorzugt stattfinden?"
@@ -181,7 +208,7 @@ This is the ADVISOR HANDOFF endpoint — not the online conversion path. But it 
 
 ---
 
-### Screen 5 — Appointment Booking (advisor path, auto-filled)
+### Appointment Booking (advisor path, auto-filled — out of scope)
 
 ```
 "Persönlichen Beratungstermin vereinbaren"

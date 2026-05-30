@@ -1,10 +1,10 @@
 # PERSONA-TLM — model design, proof, calibration
 
-> **Role: baseline, not the headline model.** The primary persona path is now
-> [`PERSONA_TRAIN_PLAN.md`](PERSONA_TRAIN_PLAN.md) (H1 = fine-tune MiniCPM5-1B).
-> This tiny from-scratch TLM stays because it is the *calibratable* model that
-> pins the Z3 safety budget `b = ε_anchor` (§3.4) — a job the generative FT model
-> does poorly. Keep both; they are complements.
+> **Role: DEFERRED (go-local path).** The current plan is
+> [`PIPELINE_PLAN.md`](PIPELINE_PLAN.md) — personas stay **LLM-driven** for now,
+> no local fine-tune. This tiny from-scratch TLM is kept for the deferred
+> "go fully local" stage (PIPELINE_PLAN §9); it is also the *calibratable* model
+> that pins the Z3 safety budget `b = ε_anchor` (§3.4) when we get there.
 
 Folds into `docs/PERSONA_MODEL_PLAN.md`. Grounded in `src/uniqa/contracts.py`,
 `src/uniqa/tlm.py`, `src/uniqa/psyche.py`, `src/uniqa/eventproc.py`,
