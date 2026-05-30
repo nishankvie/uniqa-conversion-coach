@@ -305,6 +305,20 @@ The stale-anchor problem is solved by the real mechanism, not by corrupting Fran
 her S4 pressure (`budget_pressure`/`value_orientation`/`advisor_lean`); and Peter/Judith rare
 conversions need N≥50 to show ≥1. Next: a light tuner pass + larger N → full PASS.
 
+## 5i. Tuner converged — ε = 0.092 (coherent params)
+
+Threaded tuner, N=50 × 3 rounds: **ε = 0.0919** (round 2, well under the 0.12 gate); every
+persona now converts ≥1. Judith & Peter tuned to coherent, persona-true dials. **Franz**: the
+tuner kept trying to fix his slight over-conversion (0.20 vs the 0.10 anchor) by drifting
+`advisor_lean` 0.05→0.23 — we **capped it back** (advisor_lean 0.08, commitment 0.40). A
+decisive, never-advisor online-completer converting ~0.20 is more credible than 0.10; his
+**0.10 conversion anchor is the stale price-jump artifact**, so we keep him coherent rather
+than corrupt him. Global-best persisted at ε=0.092 with the coherent set.
+
+**Gate status:** eps_pass ✅ (0.092≤0.12) · each-converts ✅ · conv_pass ⚠ only on Franz
+(0.20 vs 0.10 — stale anchor). **Practically converged + persona-coherent.** Recommend
+locking these params and (optionally) re-deriving Franz's S6/conversion anchor (§6 option A).
+
 ## 6. STATUS & DECISION POINT (largely resolved by §5h)
 
 **Decision needed — the per-persona S6 anchors vs reality:**
