@@ -183,6 +183,72 @@ def params_block(persona: str) -> str:
             "your stay-or-leave choices at each step:\n" + "\n".join(lines))
 
 
+# In-scope online flow we orchestrate step by step (S5 add-on is out of scope; PURCHASE
+# is the terminal success after S6).
+_INSCOPE_FLOW = [Step.COVERAGE_TYPE, Step.INSURED, Step.PERSONAL_INFO,
+                 Step.TARIFF_SELECT, Step.PERSONAL_DATA]
+
+
+def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str],
+                               state: dict, *, include_quant: bool = False,
+                               include_params: bool = False,
+                               include_state: bool = False) -> list[dict]:
+    """One STEP-BASED turn: emit this step's events, (optionally) track state vars, and
+    make an explicit felt stay/leave decision. Returns (system, user) messages."""
+    sys = agent_persona_prompt(persona)
+    if include_quant:
+        sys += quant_metrics_block(persona)
+    if include_params:
+        sys += params_block(persona)
+
+    wrm = widget_response_model()
+    first = not history_brief
+    out_schema = {
+        "events": [{"step": step.value, "type": "<legal type>", "target": "<str|null>",
+                    "value": "<num|bool|str|null>", "t": "<rel seconds on THIS step>",
+                    "thought": "<short first-person>"}],
+        "decision": "continue | leave",
+        "reason": "<first-person why>",
+    }
+    rules = [
+        "Emit ONLY what you do on THIS step (this step's events).",
+        "Only use event types in action_space.legal_event_types.",
+        "Respect widget_response_model: actions have the stated effects; hospital / other-persons / Opt.Plus / Premium hand off to an advisor (leave = online abandon, not a conversion).",
+    ]
+    if first:
+        rules.append("This is your FIRST step: the first event's thought must set context "
+                     "— who you are arriving as, what triggered this visit, what you expect.")
+    rules.append("If a price appears (S4 select, or the S6 final price), voice EXPECTATION "
+                 "vs REALITY in the thought, then decide.")
+    if include_state:
+        out_schema["state"] = {"attention": "0..1", "satisfaction": "0..1", "effort_left": "0..1"}
+        out_schema["feeling"] = "engaged | distracted | dissatisfied"
+        rules += [
+            "Before deciding, check in with yourself and set `feeling`:",
+            "  • 'distracted' — your attention drifted (phone, another tab, life). You may emit "
+            "idle/tab_blur and then LEAVE because you forgot about the form / didn't come back.",
+            "  • 'dissatisfied' — something here doesn't satisfy you (price too high, too complex, "
+            "advisory wall, no clear recommendation) and you just want to CLOSE it — say what.",
+            "  • 'engaged' — you're fine to continue.",
+            "Update `state` honestly: attention/satisfaction/effort_left tend to DROP as the "
+            "journey wears on and on a bad screen; carry them forward from your_running_state.",
+            "Let your feeling + state drive the decision — do NOT continue just to see what's next.",
+        ]
+    user = {
+        "you_are_on": step.value,
+        "ui_ascii": ascii_screen(step),
+        "action_space": render_action_space(step),
+        "widget_responses_here": wrm["transitions"].get(step.value, {}),
+        "conversion_definition": wrm["conversion_definition"],
+        "your_running_state": state,
+        "history_brief": history_brief,
+        "output_schema": out_schema,
+        "rules": rules,
+    }
+    return [{"role": "system", "content": sys},
+            {"role": "user", "content": json.dumps(user, ensure_ascii=False)}]
+
+
 def build_session_prompt(persona: str, include_quant: bool = False,
                          include_params: bool = False) -> list[dict]:
     """
@@ -358,9 +424,12 @@ class LLMTeacher:
     name = "llm"
 
     def __init__(self, model: str | None = None, include_quant: bool = False,
-                 include_params: bool = False):
+                 include_params: bool = False, stepwise: bool = False,
+                 include_state: bool = False):
         self.include_quant = include_quant
         self.include_params = include_params
+        self.stepwise = stepwise
+        self.include_state = include_state
         from openai import OpenAI  # lazy import
         if os.getenv("OPENROUTER_API_KEY"):
             self.client = OpenAI(base_url="https://openrouter.ai/api/v1",
@@ -386,6 +455,8 @@ class LLMTeacher:
         return r.choices[0].message.content or ""
 
     def session(self, persona: str, rng: random.Random) -> list[dict]:
+        if self.stepwise:
+            return self._session_stepwise(persona, rng)
         msgs = build_session_prompt(persona, include_quant=self.include_quant,
                                     include_params=self.include_params)
         try:
@@ -396,6 +467,56 @@ class LLMTeacher:
         if isinstance(data, dict):
             return data.get("events", []) or []
         return data if isinstance(data, list) else []
+
+    def _session_stepwise(self, persona: str, rng: random.Random) -> list[dict]:
+        """Walk S1→S6 one LLM turn per step; each turn emits the step's events, tracks
+        running state, and decides continue/leave. Returns raw events (parse_session gates)."""
+        state = {"attention": 1.0, "satisfaction": 0.7, "effort_left": 1.0}
+        events: list[dict] = []
+        brief: list[str] = []
+        t = 0.0
+        for step in _INSCOPE_FLOW:
+            events.append({"step": step.value, "type": "step_enter", "t": round(t, 2)})
+            msgs = build_step_decision_prompt(
+                persona, step, brief[-6:], state,
+                include_quant=self.include_quant, include_params=self.include_params,
+                include_state=self.include_state)
+            try:
+                out = json.loads(_strip_fences(self._call(msgs)))
+            except Exception:
+                out = {}
+            t += rng.uniform(0.5, 2.0)
+            step_evs = out.get("events") if isinstance(out, dict) else None
+            done_here = []
+            for ev in (step_evs or []):
+                if not isinstance(ev, dict) or "type" not in ev:
+                    continue
+                ev["step"] = step.value
+                try:
+                    ev["t"] = t + float(ev.get("t", 0.0))
+                except (TypeError, ValueError):
+                    ev["t"] = t
+                done_here.append(ev)
+            if done_here:
+                t = max(e["t"] for e in done_here)
+                events.extend(done_here)
+                tgt = [str(e.get("target")) for e in done_here if e.get("target")]
+                brief.append(f"{step.value}: " + ", ".join(tgt[:4]) if tgt else f"{step.value}: (viewed)")
+            if self.include_state and isinstance(out.get("state"), dict):
+                for k in ("attention", "satisfaction", "effort_left"):
+                    if isinstance(out["state"].get(k), (int, float)):
+                        state[k] = float(out["state"][k])
+            if str(out.get("decision", "")).lower() == "leave":
+                reason = out.get("reason") or out.get("feeling") or "left"
+                feeling = out.get("feeling")
+                val = f"{feeling}:{reason}" if feeling and feeling != "engaged" else reason
+                events.append({"step": step.value, "type": "abandon", "target": None,
+                               "value": val, "t": t + 0.4, "thought": reason})
+                return events
+        events.append({"step": Step.PURCHASE.value, "type": "step_enter", "t": t + 0.5})
+        events.append({"step": Step.PURCHASE.value, "type": "convert", "value": "online_purchase",
+                       "t": t + 1.0, "thought": "done — finished it online"})
+        return events
 
 
 OpenAITeacher = LLMTeacher   # back-compat alias
@@ -409,10 +530,13 @@ def _strip_fences(s: str) -> str:
     return s.strip()
 
 
-def default_teacher(model: str | None = None, include_quant: bool = False) -> Teacher:
+def default_teacher(model: str | None = None, include_quant: bool = False,
+                    include_params: bool = False, stepwise: bool = False,
+                    include_state: bool = False) -> Teacher:
     if os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY"):
         try:
-            return LLMTeacher(model, include_quant=include_quant)
+            return LLMTeacher(model, include_quant=include_quant, include_params=include_params,
+                              stepwise=stepwise, include_state=include_state)
         except Exception:
             pass
     return OfflineTeacher()

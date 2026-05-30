@@ -181,18 +181,23 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="persona session-gen + stats validation")
     ap.add_argument("--n", type=int, default=30, help="sessions per persona")
     ap.add_argument("--model", default=None)
-    ap.add_argument("--quant", action="store_true", help="iter1: inject behavioural metrics")
-    ap.add_argument("--params", action="store_true", help="iter2: parameter-driven dials + per-step stay/leave")
+    ap.add_argument("--stepwise", action="store_true", help="step-based generation (one LLM turn per step)")
+    ap.add_argument("--quant", action="store_true", help="inject curated behavioural metrics")
+    ap.add_argument("--params", action="store_true", help="parameter-driven dials (whole-session)")
+    ap.add_argument("--state", action="store_true", help="stepwise: track state vars + felt distract/dissatisfy decision")
     ap.add_argument("--offline", action="store_true", help="offline stub (no API)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--workers", type=int, default=8, help="concurrent LLM calls")
     args = ap.parse_args(argv)
 
-    mode = "offline" if args.offline else ("params" if args.params else ("quant" if args.quant else "base"))
+    pre = "step" if args.stepwise else "ws"
+    suff = "state" if args.state else ("quant" if args.quant else ("params" if args.params else "base"))
+    mode = "offline" if args.offline else f"{pre}-{suff}"
     if args.offline:
         teacher = OfflineTeacher()
     elif os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY"):
-        teacher = LLMTeacher(args.model, include_quant=args.quant, include_params=args.params)
+        teacher = LLMTeacher(args.model, include_quant=args.quant, include_params=args.params,
+                             stepwise=args.stepwise, include_state=args.state)
     else:
         teacher = OfflineTeacher()
     workers = 1 if args.offline else args.workers

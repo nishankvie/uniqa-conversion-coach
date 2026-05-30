@@ -107,13 +107,46 @@ behavioural parameter. The dials never enter the prompt as numbers, and the funn
 never enter the prompt at all. Optional: auto-tuner `research/tune.py` (coordinate descent
 + a step size), with a human approving each dial diff (keeps it manual/auditable).
 
+## 5b. Step-based results (implemented — `research/run.py --stepwise`)
+
+Per-step generation is implemented: we orchestrate S1→S6, each step is one LLM turn that
+emits the step's events, tracks running state vars, and makes an explicit stay/leave call.
+The escalation was repeated from scratch (gpt-4o-mini, N=20/persona;
+`research/findings/stepwise_iter*.md`):
+
+| stepwise iter | lever | overall conv (tgt .083) | S4 bounce J/F/P (tgt .70/.55/.80) | ε |
+|---|---|---|---|---|
+| 0 base | per-step continue/leave | 0.715 | 0.35 / 0.00 / 0.10 | 0.38 |
+| 1 +quant | behavioural metrics | **0.845** (worse) | 0.10 / 0.05 / 0.10 | 0.44 |
+| 2 **+state** | state vars + felt **distracted/dissatisfied** decision | 0.445 | **0.79 / 0.10 / 0.63** | **0.27** |
+| 3 +state+params | dials on top of state | 0.490 | 0.95 / 0.00 / 0.84 | 0.31 |
+
+Findings:
+1. **The felt-state lever (`--state`) unlocks the S4 wall** that no whole-session prompt
+   could move — Judith S4 → .79 (tgt .70), Peter → .63–.84 (tgt .80). The two abandonment
+   MODES (`distracted` → drift off / forget the form; `dissatisfied` → close it because it
+   doesn't satisfy + reason) produce behaviourally correct exits.
+2. **`--quant` is counter-productive in stepwise** — online-purchase propensity priors push
+   the model to *complete*, worsening over-conversion. Drop it for stepwise.
+3. **Dials (`--params`) control magnitude** — Peter S4 hit .84; Judith's S4 dial is now too
+   strong (.95, overshoot → lower `price_shock_s4`).
+4. **Franz is the open case**: he converts ~0.95 because the loop lets the LLM keep the S6
+   final price = estimate, so he has no reason to leave. Real funnel: most see a HIGHER
+   final price. → the orchestrator must **compute the S6 final price (with uplift) as a
+   widget response** and present it, so Franz faces the real jump (a state-machine fact we
+   own, not a target).
+
 ## 6. Recommended next steps
 
-1. Implement the per-step generator (§4) behind `--stepwise`; keep whole-session for
-   cheap smoke tests.
-2. Add `sample_disposition` + `price_vs_hoped` (dial-derived).
-3. Re-run iter-2; expect S4 bounce to move off 0. Then run the coordinate-descent tuner
-   (§5) to convergence (ε ≤ 0.12, each persona converts ≥ once).
+0. **Architecture decision: stepwise + `--state` is the generator.** Whole-session can't
+   produce mid-funnel exits; pure stepwise over-converts; stepwise+state is the only mode
+   that moves S4. Drop `--quant` for stepwise.
+1. **Inject the computed S6 final price** (provisional + realistic health uplift) as a
+   widget response so the final-price jump is real → fixes Franz.
+2. **Tune dials** (coordinate descent, §5): lower Judith `price_shock_s4` (.70→~.55),
+   raise Franz `final_price_sensitivity_s6`, keep Peter. Re-validate.
+3. (superseded) per-step generator — DONE.
+
 4. Bump to a stronger teacher for the final datasets; keep mini for the tuning loop.
 5. Only then freeze dials, generate the final thought-rich datasets, and proceed to the
    Leonardo fine-tune (then re-validate the LOCAL model with the same `research/run.py`).
