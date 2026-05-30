@@ -204,15 +204,17 @@ _COGNITIVE_MODEL = {
         "use up). A price above your picture, a budget strain, OR a worth-it calculation that fails "
         "pushes you toward leaving / wanting advice — otherwise it's fine."),
     "commitment_rule": (
-        "At the binding step (S6: personal + health data, about to buy), reluctance EMERGES from "
-        "`commitment_anxiety` + `uncertainty_aversion` (the price is 'preliminary'; the binding "
-        "premium is confirmed later) + how drained you are (`effort_left`) + `advisor_lean`. There "
-        "is NO price increase here — the final online price equals what you already saw at S4. "
-        "UNIVERSAL TRUTH: completing the WHOLE purchase of private health insurance online in one "
-        "sitting is the EXCEPTION, not the norm — it is a major binding commitment and the "
-        "questionnaire asks sensitive medical questions. Even confident, decisive online shoppers "
-        "very commonly stop here to finish later, re-read the terms, or check with a partner; most "
-        "sessions that reach S6 do NOT convert in this sitting (insurance abandons ~84% of carts)."),
+        "S6 gives personal + HEALTH data, then shows the FINAL price/proposal. Real things here: "
+        "(1) PRICE may JUMP — the `final_price` block shows provisional (S4) vs final; if your "
+        "health answers added a ~6-10% loading the final is HIGHER, which triggers the SAME price "
+        "reaction as S4 (above `price_expectation`, straining `budget_pressure`, failing your value "
+        "math → you bail, especially if you hate surprises). (2) the form asks height/weight — if "
+        "`session_instance.recalls_measurements` says you're unsure, that's friction (you guess, get "
+        "annoyed, or stall). (3) the binding commitment itself: `commitment_anxiety` + "
+        "`uncertainty_aversion` + drain (`effort_left`) + `advisor_lean`. UNIVERSAL TRUTH: finishing "
+        "a health-insurance purchase online in one sitting is the EXCEPTION (insurance abandons ~84% "
+        "of carts) — even decisive shoppers often stop to finish later or check with someone. If your "
+        "`visit_goal` was to see the final price/proposal, you may read it here and leave CONTENT."),
     "decision_rule": (
         "Leave when a state variable crosses your tolerance, via the feeling that fired. Your "
         "`session_instance.visit_goal` (price-check vs research vs ready-to-buy) is your drive to "
@@ -267,13 +269,33 @@ def _real_prices_block(step: Step, disposition: dict | None) -> dict:
                     "care they'd realistically use."}}
 
 
+def _final_price_block(disposition: dict | None, selected_tariff: str | None) -> dict:
+    """At S6, after the health questions, the binding FINAL price may be ~6-10% higher than the
+    S4 provisional if the health answers flag a risk loading. Show provisional vs final."""
+    if not disposition or "age" not in disposition or not selected_tariff:
+        return {}
+    try:
+        prov = _premium(_Tariff(selected_tariff), disposition["age"])
+    except Exception:
+        return {}
+    sur = float(disposition.get("_health_surcharge_pct", 0) or 0)
+    final = round(prov * (1 + sur / 100.0), 2)
+    blk = {"provisional_eur_seen_at_s4": prov, "final_eur_after_health_questions": final,
+           "increase_pct": round(sur, 1),
+           "note": (f"Your health answers added a {round(sur,1)}% risk loading — the final price "
+                    f"€{final} is HIGHER than the €{prov} you saw at S4.") if sur > 0
+                   else f"No risk loading — the final price equals the €{prov} you saw at S4."}
+    return {"final_price": blk}
+
+
 def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str],
                                state: dict, *, include_quant: bool = False,
                                include_params: bool = False,
                                include_state: bool = False,
                                session_context: dict | None = None,
                                intent: str | None = None,
-                               disposition: dict | None = None) -> list[dict]:
+                               disposition: dict | None = None,
+                               selected_tariff: str | None = None) -> list[dict]:
     """One STEP-BASED turn: emit this step's events, (optionally) track state vars, and
     make an explicit felt stay/leave decision. Returns (system, user) messages."""
     sys = agent_persona_prompt(persona)
@@ -328,7 +350,8 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
             "(`your_initial_intent`) — price higher than hoped, 'advisory required' when you wanted "
             "online, unexpected/contradicting info — and you decide to close it.",
             "  • 'goal_achieved' — INTENT-DRIVEN (not friction): if your `visit_goal` was to CHECK / "
-            "COMPARE the price (not buy today), then once you have seen the number at S4 you leave "
+            "COMPARE the price or to SEE THE FINAL PRICE/PROPOSAL (not buy today), then once you have "
+            "seen the number you came for (the S4 price, or the S6 final price/proposal) you leave "
             "CONTENT — you got what you came for. A calm, satisfied exit, not frustration.",
             "  • 'engaged' — it delivers what you expected; continue.",
             "If `session_instance.familiarity` says you have been here before, you input data "
@@ -346,6 +369,7 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
         "action_space": render_action_space(step),
         "ux_complexity_here": ux_complexity(step),
         **(_real_prices_block(step, disposition) if include_state else {}),
+        **(_final_price_block(disposition, selected_tariff) if include_state and step is Step.PERSONAL_DATA else {}),
         **({"cognitive_model": _COGNITIVE_MODEL} if include_state else {}),
         "widget_responses_here": wrm["transitions"].get(step.value, {}),
         "conversion_definition": wrm["conversion_definition"],
@@ -357,7 +381,7 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
     if session_context:
         user["session_context"] = session_context
     if disposition:
-        user["session_instance"] = disposition
+        user["session_instance"] = {k: v for k, v in disposition.items() if not k.startswith("_")}
     if intent:
         user["your_initial_intent"] = intent
     return [{"role": "system", "content": sys},
@@ -591,6 +615,7 @@ class LLMTeacher:
         ctx = _sample_session_context(persona, rng) if self.include_state else None
         disp = _sample_disposition(persona, rng) if self.include_state else None
         intent = None
+        selected_tariff = None
         events: list[dict] = []
         brief: list[str] = []
         t = 0.0
@@ -600,7 +625,7 @@ class LLMTeacher:
                 persona, step, brief[-6:], state,
                 include_quant=self.include_quant, include_params=self.include_params,
                 include_state=self.include_state, session_context=ctx, intent=intent,
-                disposition=disp)
+                disposition=disp, selected_tariff=selected_tariff)
             try:
                 out = json.loads(_strip_fences(self._call(msgs)))
             except Exception:
@@ -622,6 +647,10 @@ class LLMTeacher:
                 events.extend(done_here)
                 tgt = [str(e.get("target")) for e in done_here if e.get("target")]
                 brief.append(f"{step.value}: " + ", ".join(tgt[:4]) if tgt else f"{step.value}: (viewed)")
+                if step is Step.TARIFF_SELECT:
+                    for e in done_here:
+                        if str(e.get("target") or "") in ("start", "optimal", "opt_plus", "premium"):
+                            selected_tariff = str(e["target"]); break
             if isinstance(out.get("intent"), str) and not intent:
                 intent = out["intent"]
             if self.include_state and isinstance(out.get("state"), dict):
@@ -669,7 +698,8 @@ def _sample_session_context(persona: str, rng: random.Random) -> dict:
 # 'urgent / prepared-for-premium / can-proceed-alone' Judith converts.
 _INSTANCE_AXES = {
     "time_pressure": ["calm, has time", "mildly busy", "interrupted / rushed"],
-    "visit_goal": ["just checking / comparing the price (NOT buying today)",
+    "visit_goal": ["just checking / comparing the S4 price (NOT buying today)",
+                   "click all the way through to see the FINAL price + proposal (then decide; likely not buying now)",
                    "researching, might buy if it fits",
                    "seriously considering buying now",
                    "urgent need, ready to buy"],
@@ -714,12 +744,22 @@ _DISP_W = {
 _AGE_ANCHOR = {"judith": 43, "franz": 40, "peter": 35}
 
 
+# Fraction of sessions where the health answers trigger a real risk loading on the FINAL
+# (binding) price — a ~6-10% increase shown at S6 after the questionnaire (CDP recon: the
+# pre-health displayed price is age+tariff only, but the binding /calculate can load risk).
+_HEALTH_LOADING_RATE = {"judith": 0.45, "franz": 0.40, "peter": 0.50}
+
+
 def _sample_disposition(persona: str, rng: random.Random) -> dict:
     w = _DISP_W.get(persona, {})
     out = {}
     for axis, opts in _INSTANCE_AXES.items():
         out[axis] = _weighted(rng, w[axis]) if axis in w else rng.choice(opts)
     out["age"] = max(19, min(72, round(_AGE_ANCHOR.get(persona, 40) + rng.gauss(0, 9))))
+    out["recalls_measurements"] = _weighted(rng, [("knows their height/weight", .7),
+                                                  ("not sure of their exact height/weight", .3)])
+    rate = _HEALTH_LOADING_RATE.get(persona, 0.45)
+    out["_health_surcharge_pct"] = round(rng.uniform(6, 10), 1) if rng.random() < rate else 0
     return out
 
 

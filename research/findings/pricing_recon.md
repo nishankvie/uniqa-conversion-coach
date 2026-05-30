@@ -44,7 +44,18 @@ not one form fill.
 - **Health answers: NO** — not even an input to `/products` or `/premiums`. The displayed
   online premium does **not** change after the health questionnaire.
 
-## The big correction: there is NO online price-jump
+## Clarification: pre-health displayed price vs binding post-health final price
+
+The `/products` + `/premiums` endpoints we swept return the **pre-health displayed price** =
+f(age, tariff) only. The **binding final price** comes from the captcha-gated `/calculate`
+(reached only after the S6 health questionnaire), which we could NOT replay. Per domain
+knowledge, that binding step **can apply a ~6–10% risk loading** based on the health answers
+(declared conditions, BMI from height/weight, etc.). So a real S6 price-jump exists for SOME
+users — our twin models it as a conditional ~6–10% surcharge sampled per session
+(`_HEALTH_LOADING_RATE`), shown at S6 as provisional-vs-final. (This supersedes the
+"no jump" framing below, which was only true of the *pre-health displayed* price.)
+
+## (superseded) The big correction: there is NO online price-jump
 
 The S4 "voraussichtliche Prämie" and the S6/final price are the **same** age+tariff number.
 Health questions gate **offline underwriting** (the binding premium is confirmed later), but

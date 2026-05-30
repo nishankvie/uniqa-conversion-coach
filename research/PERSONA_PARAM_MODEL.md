@@ -286,7 +286,26 @@ persona ("the segment that proves the calculator works"); with no price jump, a 
 for him is not credible, and the LLM correctly refuses to make him bail that often. The model
 isn't failing — the **anchor is stale**.
 
-## 6. STATUS & DECISION POINT
+## 5h. RESOLVED — conditional S6 price jump fixes Franz (ε under gate)
+
+Reconciliation of the recon vs the franz anchor: the pre-health `/products` price is
+age+tariff only, but the **binding** final price (captcha'd `/calculate`, post-health) **can
+add a ~6–10% risk loading** — a real S6 jump for some users. Modelled it: per-session
+`_HEALTH_LOADING_RATE` → conditional 6–10% surcharge, shown at S6 as provisional-vs-final;
+the persona reacts via the SAME emergent price rule. Also added: **"see the final proposal"**
+visit_goal (push through S6 to read the final number, then `goal_achieved` exit) and
+**not recalling height/weight** friction.
+
+**Result (N=24, stepwise+state+params): ε = 0.111 — UNDER the 0.12 gate.** Franz now
+calibrated WITH persona-true dials (conv .12/.10, S4 .61/.55, S6 **.67**/.78; was .22). His
+reasons are correct ("price higher than I pictured, compare further" / "wasn't buying today").
+The stale-anchor problem is solved by the real mechanism, not by corrupting Franz.
+
+**Remaining = tuning-level only:** Judith over-exits S4 (1.00 vs .70 → 0 conversions) — lower
+her S4 pressure (`budget_pressure`/`value_orientation`/`advisor_lean`); and Peter/Judith rare
+conversions need N≥50 to show ≥1. Next: a light tuner pass + larger N → full PASS.
+
+## 6. STATUS & DECISION POINT (largely resolved by §5h)
 
 **Decision needed — the per-persona S6 anchors vs reality:**
 - **(A) Re-ground the S6 anchors.** Keep the overall ~5.6% conversion + S4 ~66% drop (solid),

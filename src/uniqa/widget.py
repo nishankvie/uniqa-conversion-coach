@@ -174,7 +174,7 @@ def widget_response_model() -> dict:
                 "Weiter with no tariff selected": "validation_error",
             },
             "S6_PERSONAL_DATA": {
-                "fill name/email/SV + health answers, then submit": "the FINAL online price EQUALS the provisional age+tariff premium — it does NOT change based on your health answers (health is collected for offline underwriting/eligibility, and the binding premium is confirmed later). The friction here is the long questionnaire + the commitment + uncertainty about the eventual underwritten premium, NOT a displayed price jump",
+                "fill name/email/SV + health answers, then submit": "shows the FINAL price/proposal: usually = the S4 provisional, but the health answers MAY add a ~6-10% risk loading so the final is higher. Also asks height/weight (friction if not recalled). The binding commitment + a possible higher final are the real bounce triggers here",
                 "Abschließen": "ONLINE PURCHASE → convert",
             },
             "any_step": {
