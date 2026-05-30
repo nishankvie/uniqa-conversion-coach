@@ -24,7 +24,6 @@ from __future__ import annotations
 import json
 import os
 import random
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -58,30 +57,24 @@ _load_dotenv()
 _TRACK = Path("/tmp/zero_one_hack_01/tracks/insurance-uniqa")
 _SEGMENT = {"judith": "segment_1", "franz": "segment_2", "peter": "segment_3"}
 
-# anti-leakage: keep funnel-OUTCOME stats out of the persona system prompt. We tune
-# the prompt/training set until the anchors (S4~66%, S6~78%, ~5.6% overall, 30/50/20)
-# EMERGE; the agent must never be told them. Only sentences pairing a percentage with a
-# funnel-outcome keyword are dropped; behavioural/channel priors (e.g. 60% customer
-# service, 24% switch willingness, 39% buy simple products online) are kept.
-_PCT_RE = re.compile(r"\d{1,3}\s?%|\b(?:66|78)\b|\b5\.6\b")
-_FUNNEL_KW_RE = re.compile(
-    r"drop[- ]?off|exit point|the funnel|statistical|the official|\bconvers", re.I)
+# Agent-facing persona prompts are HAND-SCRUBBED, version-controlled files under
+# prompts/personas/. They are the single editable source of the system prompt: the
+# funnel churn/bounce/conversion TARGETS (S4~66%, S6~78%, ~5.6%, 30/50/20 mix) are
+# removed by hand there, never by a runtime regex. Anchors stay only in funnel.py (eval).
+_PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts" / "personas"
 
 
-def scrub_funnel_targets(text: str) -> str:
-    """Remove sentences that encode a funnel churn/bounce/conversion TARGET.
+def agent_persona_prompt(persona: str) -> str:
+    """The hand-scrubbed system prompt for a persona (prompts/personas/<persona>.md).
 
-    A sentence is dropped iff it contains a percentage-like token AND a funnel-outcome
-    keyword (so 'the 66% drop-off ... includes you' goes, '60% via customer service'
-    stays). Operates line-by-line to preserve markdown tables.
+    Falls back to the raw briefing only if the scrubbed file is missing (so a missing
+    file is loud in tests rather than silently leaking targets).
     """
-    kept_lines = []
-    for line in text.split("\n"):
-        sentences = re.split(r"(?<=[.!?])\s+", line)
-        keep = [s for s in sentences
-                if not (_PCT_RE.search(s) and _FUNNEL_KW_RE.search(s))]
-        kept_lines.append(" ".join(keep) if len(sentences) > 1 else (keep[0] if keep else ""))
-    return "\n".join(kept_lines)
+    f = _PROMPT_DIR / f"{persona}.md"
+    if f.exists():
+        return f.read_text(encoding="utf-8")
+    brief = PERSONA_BRIEFINGS.get(persona)
+    return brief.read_text(encoding="utf-8") if brief and brief.exists() else f"You are {persona}."
 
 # in-scope steps that can bounce (skip START / PURCHASE terminal)
 _BOUNCE_STEPS = [Step.PERSONAL_INFO, Step.TARIFF_SELECT, Step.ADDON_SELECT, Step.PERSONAL_DATA]
@@ -89,27 +82,10 @@ _BOUNCE_STEPS = [Step.PERSONAL_INFO, Step.TARIFF_SELECT, Step.ADDON_SELECT, Step
 
 # ─── prompt assembly (used by the real teacher; tested for completeness) ──────
 
-def _persona_json_fields(persona: str) -> dict:
-    try:
-        d = json.loads((_TRACK / "personas.json").read_text())
-        s = d["personas"][_SEGMENT[persona]]
-        return {
-            "archetype": s.get("persona_archetype", {}),
-            "online_funnel_behavior_hypotheses": s.get("online_funnel_behavior_hypotheses", {}),
-            "pain_points": s.get("pain_points", {}),
-        }
-    except Exception:
-        return {}
-
-
 def build_step_prompt(persona: str, step: Step, atoms: list[dict] | None = None,
                       coach_reasoning: str = "") -> list[dict]:
     """Assemble the (system, user) messages a real LLM teacher receives."""
-    brief = PERSONA_BRIEFINGS.get(persona)
-    persona_md = brief.read_text(encoding="utf-8") if brief and brief.exists() else f"You are {persona}."
-    sys = scrub_funnel_targets(
-        persona_md + "\n\nPERSONA FACTS (json):\n"
-        + json.dumps(_persona_json_fields(persona), ensure_ascii=False))
+    sys = agent_persona_prompt(persona)
 
     ui_json = STEP_SCREENS.get(step, {"screen": step.value})
     workflow = {
@@ -137,11 +113,7 @@ def build_session_prompt(persona: str) -> list[dict]:
     per-event motivation. Cheaper + more coherent than per-step prompting, and lets
     the model reason about pacing (reactive vs engaged vs distracted) across steps.
     """
-    brief = PERSONA_BRIEFINGS.get(persona)
-    persona_md = brief.read_text(encoding="utf-8") if brief and brief.exists() else f"You are {persona}."
-    sys = scrub_funnel_targets(
-        persona_md + "\n\nPERSONA FACTS (json):\n"
-        + json.dumps(_persona_json_fields(persona), ensure_ascii=False))
+    sys = agent_persona_prompt(persona)
     widget = {s.value: {"ui_ascii": ascii_screen(s), "action_space": render_action_space(s)}
               for s in STEP_ACTIONS}
     instruction = {

@@ -176,12 +176,17 @@ What it **must NOT** see:
   30/50/20 mix, or sentences like *"That is the 66 % drop-off… it includes you."*
 - `funnel.py`'s `ABANDON_PROBS`, `PERSONA_WEIGHTS`, psyche hazard tables.
 
-**Action:** the briefing `.md` files (Judith/Franz/Peter) contain the percentages in their
-"How you behave in the calculator" / "drop-off" sentences. A `sanitize_persona_md()` pass
-strips any sentence carrying a funnel percentage **before** the text is used as a system
-prompt (source files under `/tmp/.../tracks/` stay untouched). `personas.json`
-`online_funnel_behavior_hypotheses` is qualitative (keep), but is scanned for stray numeric
-rates too.
+**Action (manual, not regex):** the agent system prompt is a **hand-scrubbed,
+version-controlled file per persona** under `prompts/personas/{judith,franz,peter}.md`.
+These are seeded from the briefings with the funnel-target sentences removed **by hand**
+(e.g. *"That is the 66% drop-off… includes you"* → *"This first price screen is the moment
+you most often quietly disengage"*; Peter's *"20% of traffic / most won't complete online"*
+note removed). `persona_datagen.agent_persona_prompt(persona)` reads exactly these files —
+no runtime regex, no auto-injected `personas.json` numbers. To change what the agent sees,
+edit the file; the diff is the audit trail. A read-only test
+(`test_agent_prompt_files_have_no_funnel_targets`) fails loudly if a rate sneaks back in.
+Behavioural/channel priors (60% customer-service, 24% switch, 39% online) are intentionally
+kept — they shape behaviour and are not churn/bounce/conversion targets.
 
 ---
 

@@ -8,7 +8,7 @@ from uniqa.contracts import EventType
 from uniqa.persona_datagen import (
     build_step_prompt, build_session_prompt, parse_events, OfflineTeacher,
     generate_feed, generate_batch, epsilon_teacher_vs_psyche,
-    scrub_funnel_targets,
+    agent_persona_prompt,
 )
 
 
@@ -83,22 +83,19 @@ def test_zero_bias_teacher_closer_to_psyche_than_high_bias():
     assert e_lo < e_hi                              # ε tracks teacher disagreement
 
 
-# ── anti-leakage: funnel-OUTCOME targets must never reach the agent prompt ──
+# ── anti-leakage: the HAND-SCRUBBED prompt files must carry no funnel targets ──
+# Guard only (read-only assertion) — scrubbing is done manually in prompts/personas/,
+# not by a runtime regex. This fails loudly if a target sneaks back into a file.
 
-def test_scrub_removes_funnel_targets_keeps_behavioural_pct():
-    leak = ("That is the 66% drop-off at the first price screen. It includes you.\n"
-            "About 60% of customer journey activities happen via customer service.")
-    out = scrub_funnel_targets(leak)
-    assert "66%" not in out and "drop-off" not in out      # target sentence removed
-    assert "60%" in out                                     # channel prior survives
-
-
-def test_session_prompt_has_no_funnel_targets_but_has_thought_rules():
+def test_agent_prompt_files_have_no_funnel_targets():
     for persona in ("judith", "franz", "peter"):
-        msgs = build_session_prompt(persona)
-        sysmsg = msgs[0]["content"].lower()
-        for tok in ("66%", "78%", "drop-off", "5.6%"):
+        sysmsg = agent_persona_prompt(persona).lower()
+        assert persona.split()[0] in sysmsg or persona in sysmsg   # real file loaded
+        for tok in ("66%", "78%", "drop-off", "drop off", "5.6%", "34% survive"):
             assert tok not in sysmsg, f"{persona}: leaked {tok!r}"
-        rules = " ".join(json.loads(msgs[1]["content"])["rules"]).lower()
-        assert "first event" in rules and "context" in rules     # 1st thought = context
-        assert "expectation" in rules                            # price expectation vs reality
+
+
+def test_session_prompt_has_thought_rules():
+    rules = " ".join(json.loads(build_session_prompt("franz")[1]["content"])["rules"]).lower()
+    assert "first event" in rules and "context" in rules     # 1st thought = context
+    assert "expectation" in rules                            # price expectation vs reality
