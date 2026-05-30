@@ -1,0 +1,45 @@
+# ─── Python ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+build/
+dist/
+
+# ─── Env / secrets ────────────────────────────────────────
+.env
+.env.*
+*.key
+
+# ─── OS / editor ──────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
+
+# ─── Agent / meta planning (local only) ───────────────────
+CLAUDE.md
+progress.md
+ORIENTATION.md
+ACTION_PLAN.md
+
+# ─── Other hackathon tracks (NOT part of the UNIQA submission) ───
+# Infineon / Karpathy sequence-modeling track
+INFINEON_KARPATHY.md
+karpathy-experiment/
+
+# Sybilion gas-procurement track
+SYBILION_A_DINO_SPEC.md
+SYBILION_B_GRPO_SPEC.md
+SYBILION_C_MARLIN_SPEC.md
+SYBILION_ANALYSIS.md
+RESEARCH_sybilion_video_game.md
+RESEARCH_hf_sybilion_a100.md
+
+# Unrelated exploratory research
+RESEARCH_satellite_physics_prediction.md
+RESEARCH_advanced_ideas.md
+
+# Stray / unrelated experiments
+tictactoe-extension/

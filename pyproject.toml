@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uniqa-coach"
+version = "0.1.0"
+description = "UNIQA Conversion Coach — a detection + decision layer on top of the existing UNIQA chatbot, with a psyche-driven persona simulator and a self-improving autoresearch loop."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit>=1.40",
+    "pandas>=2.0",
+    "altair>=5.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "z3-solver>=4.12"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["src/uniqa/tests"]
