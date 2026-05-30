@@ -22,28 +22,15 @@ dist/
 # ─── Stray binaries / event handouts ──────────────────────
 *.pdf
 
-# ─── Agent / meta planning (local only) ───────────────────
+# ─── Local-only notes (meta, other tracks, research, handouts) ───
+# All off-submission material now lives under _local/ (see _local/INDEX.md).
+_local/
+
+# Project config — kept at repo root by convention (tools expect it), local-only.
 CLAUDE.md
-progress.md
-ORIENTATION.md
-ACTION_PLAN.md
 
-# ─── Other hackathon tracks (NOT part of the UNIQA submission) ───
-# Infineon / Karpathy sequence-modeling track
-INFINEON_KARPATHY.md
+# Infineon / Karpathy track code — left at root; tracked docs reference this path.
 karpathy-experiment/
-
-# Sybilion gas-procurement track
-SYBILION_A_DINO_SPEC.md
-SYBILION_B_GRPO_SPEC.md
-SYBILION_C_MARLIN_SPEC.md
-SYBILION_ANALYSIS.md
-RESEARCH_sybilion_video_game.md
-RESEARCH_hf_sybilion_a100.md
-
-# Unrelated exploratory research
-RESEARCH_satellite_physics_prediction.md
-RESEARCH_advanced_ideas.md
 
 # Stray / unrelated experiments
 tictactoe-extension/
