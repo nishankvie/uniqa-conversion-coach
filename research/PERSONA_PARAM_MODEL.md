@@ -173,13 +173,37 @@ price jumped to €72, I feel misled"); Peter now exits with `too_much_effort` /
 as intended. Residual error: Judith/Peter over-exit at S4 (high `advisor_lean` fires as
 'leave to call') + N=20 sampling noise (ε ±0.03 run to run). Tuning/variance, not mechanism.
 
+## 5d. Auto-tuner result (`research/tune.py`, N=40)
+
+Coordinate descent on the dials: each round generate N stepwise+state sessions/persona,
+validate, then nudge the responsible dial per failing cell (S4 over-exit → ↓`price_shock_s4`
++ ↓`advisor_lean`; S3 → ↓`complexity_overwhelm`/↑`ux_willingness`; S6 → `final_price_sensitivity`;
+conv → `online_completion`/`advisor_lean`). Writes params each round, keeps best-ε.
+
+**Converged:** ε **0.16 → 0.097** (below the 0.12 gate), overall conversion **0.0825** (≈ the
+~5.6% anchor). Franz fully calibrated (conv .15/.10, S4 .50/.55, S6 .70/.78); Peter S4 .80/.80;
+Judith S3/.05 and S6 .67/.68. Committed params are this best set. Logs:
+`research/findings/tune_log_converged.md`.
+
+**Two residuals (not mechanism):**
+1. **Judith's S4 is sticky** (~0.92 vs .70) even with `price_shock_s4`↓0.28 and `advisor_lean`↓.
+   Her *persona narrative* ("you slow down at the price screen, consider calling, close the
+   tab") dominates the dials — arguably realistic (S1 hybrids do leave at the tariff wall),
+   but if .70 is required, soften her briefing's S4 paragraph, not just the dial.
+2. **Peter drew 0 conversions** at N=40 (target ~4% → ~1.6 expected) — sampling variance; the
+   only thing blocking a full PASS verdict.
+
+**Tuner caveats:** coordinate descent oscillates ±0.03–0.05 ε at N=40 (a 2nd seed-7 run
+wandered to 0.16); mitigate with **multi-seed averaging per round** and a *persisted global
+best* (current tuner keeps best-of-its-own-run only, so re-running can regress — restore from
+git if so).
+
 ## 6. Recommended next steps
 
-0. **Converge the dials with an auto-tuner + larger N.** Coordinate descent is now
-   bottlenecked by N=20 noise (±0.03 ε). Use N=40–50 or multi-seed averaging, and a
-   `research/tune.py` that nudges the responsible dial per failing cell (S4 over-exit →
-   lower `advisor_lean`/`price_shock_s4`; conv=0 → raise `online_completion`). Franz is at
-   target; focus on Judith/Peter `advisor_lean`.
+0. **Stabilise the tuner** (`research/tune.py` exists, ε→0.097): add multi-seed averaging
+   per round + a persisted global best so re-runs can't regress. Soften Judith's briefing
+   S4 paragraph (her S4 is narrative-locked at .92, dial-resistant). Bump N or seeds so
+   Peter's rare conversion (~4%) reliably shows ≥ once → full PASS.
 1. **Inject the computed S6 final price** (provisional + health uplift) as a widget
    response so the jump is structural (mostly fixed for Franz via the dial).
 2. **Architecture is settled:** stepwise + `--state` + `--params`; `--quant` dropped.
