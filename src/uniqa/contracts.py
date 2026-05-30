@@ -46,6 +46,13 @@ class EventType(Enum):
     FIELD_BLUR     = "field_blur"
     FIELD_EDIT     = "field_edit"
     FIELD_INVALID  = "field_invalid"
+    KEYSTROKE      = "keystroke"         # value = #keystrokes typed into target (UX cost)
+    TAP            = "tap"               # value = #taps/clicks on target (UX cost)
+    SELECT         = "select"            # chose an option (dropdown/choice-card); value = option
+    DROPDOWN_OPEN  = "dropdown_open"
+    TOOLTIP_OPEN   = "tooltip_open"      # opened an (i) info tooltip; target = coverage row
+    VALIDATION_ERROR = "validation_error" # inline field error shown; target = field
+    PRICE_REVEAL   = "price_reveal"      # a tariff price became visible after select
     PRICE_HOVER    = "price_hover"
     TARIFF_CLICK   = "tariff_click"
     PREMIUM_CLICK  = "premium_click"     # clicked an advisory-only tariff
@@ -65,16 +72,20 @@ class EventType(Enum):
 @dataclass
 class Event:
     """One atomic, timestamped thing that happened in the APP."""
-    type:   EventType
-    step:   str                       # Step.value
-    t:      float = 0.0               # seconds since session start
-    target: Optional[str] = None      # field id / tariff id / element id
-    value:  Any = None
-    source: str = "user"              # "user" | "app" | "coach"
+    type:    EventType
+    step:    str                       # Step.value
+    t:       float = 0.0               # seconds since session start (ABSOLUTE; timing matters)
+    target:  Optional[str] = None      # field id / tariff id / element id
+    value:   Any = None
+    source:  str = "user"              # "user" | "app" | "coach"
+    thought: Optional[str] = None      # persona's in-the-moment motivation (teacher-emitted)
 
     def to_dict(self) -> dict:
-        return {"type": self.type.value, "step": self.step, "t": round(self.t, 2),
-                "target": self.target, "value": self.value, "source": self.source}
+        d = {"type": self.type.value, "step": self.step, "t": round(self.t, 2),
+             "target": self.target, "value": self.value, "source": self.source}
+        if self.thought:
+            d["thought"] = self.thought
+        return d
 
 
 @dataclass

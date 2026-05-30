@@ -34,6 +34,25 @@ from uniqa.personas import PERSONA_BRIEFINGS
 from uniqa.journey import STEP_SCREENS, render_step
 from uniqa.play import ascii_screen
 from uniqa.psyche import init_mind, step_dynamics, evaluate_bounce
+from uniqa.widget import render_action_space, legal_events, STEP_ACTIONS
+
+_STEP_BY_VALUE = {s.value: s for s in Step}
+
+
+def _load_dotenv() -> None:
+    """Best-effort .env loader (cwd then repo root) — populates os.environ."""
+    here = Path(__file__).resolve()
+    for d in [Path.cwd(), *here.parents]:
+        f = d / ".env"
+        if f.exists():
+            for line in f.read_text().splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip())
+            return
+
+_load_dotenv()
 
 _TRACK = Path("/tmp/zero_one_hack_01/tracks/insurance-uniqa")
 _SEGMENT = {"judith": "segment_1", "franz": "segment_2", "peter": "segment_3"}
@@ -84,7 +103,81 @@ def build_step_prompt(persona: str, step: Step, atoms: list[dict] | None = None,
     ]
 
 
+def build_session_prompt(persona: str) -> list[dict]:
+    """
+    WHOLE-SESSION prompt: one call → the entire journey as timestamped events with
+    per-event motivation. Cheaper + more coherent than per-step prompting, and lets
+    the model reason about pacing (reactive vs engaged vs distracted) across steps.
+    """
+    brief = PERSONA_BRIEFINGS.get(persona)
+    persona_md = brief.read_text(encoding="utf-8") if brief and brief.exists() else f"You are {persona}."
+    sys = (persona_md + "\n\nPERSONA FACTS (json):\n"
+           + json.dumps(_persona_json_fields(persona), ensure_ascii=False))
+    widget = {s.value: {"ui_ascii": ascii_screen(s), "action_space": render_action_space(s)}
+              for s in STEP_ACTIONS}
+    instruction = {
+        "task": (
+            "You are this persona going through the UNIQA online health-insurance "
+            "calculator end to end. Produce the WHOLE realistic session as a JSON object "
+            '{"events":[ ... ]}. Each event: '
+            '{"step": <step id>, "type": <event_type>, "target": <str|null>, '
+            '"value": <num|bool|str|null>, "t": <seconds since start, absolute & increasing>, '
+            '"thought": <short first-person motivation>}.'
+        ),
+        "rules": [
+            "Only use action atoms / event types legal for that step (see action_space.legal_event_types).",
+            "Use keystroke events (value = #keystrokes) and tap events (value = #taps) to reflect REAL UX effort of filling fields — long forms cost more and frustrate impatient personas.",
+            "On the tariff step, select_tariff reveals a price (emit price_reveal); clicking opt_plus/premium is a premium_click (advisory-only).",
+            "Timestamps matter: small gaps = reactive/engaged, large idle/session_gap = distracted. Pace the session like THIS persona really would.",
+            "Bei Arztbesuchen + Ich selbst + Start/Optimal is the only online-completable path; hospital, other-persons, Opt.Plus/Premium route to an advisor (abandon online).",
+            "End with exactly one terminal event: convert (online purchase) or abandon (with a value naming why).",
+        ],
+        "widget": widget,
+    }
+    return [
+        {"role": "system", "content": sys},
+        {"role": "user", "content": json.dumps(instruction, ensure_ascii=False)},
+    ]
+
+
 # ─── schema gate ──────────────────────────────────────────────────────────────
+
+def parse_session(raw: str | dict) -> list[Event]:
+    """
+    Schema-gate a WHOLE-session payload → contracts.Event list with absolute t +
+    thought. Drops events whose type is unknown or illegal for their step. Sorts by t.
+    """
+    try:
+        data = raw if isinstance(raw, (dict, list)) else json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    items = data.get("events", []) if isinstance(data, dict) else data
+    if not isinstance(items, list):
+        return []
+    out: list[Event] = []
+    last_t = 0.0
+    for it in items:
+        if not isinstance(it, dict) or "type" not in it:
+            continue
+        step = _STEP_BY_VALUE.get(it.get("step"))
+        if step is None:
+            continue
+        try:
+            et = EventType(it["type"])
+        except (ValueError, KeyError):
+            continue
+        if et.value not in legal_events(step):
+            continue
+        try:
+            t = float(it.get("t", last_t))
+        except (TypeError, ValueError):
+            t = last_t
+        last_t = t
+        out.append(Event(et, step.value, t, target=it.get("target"),
+                         value=it.get("value"), thought=it.get("thought")))
+    out.sort(key=lambda e: e.t)
+    return out
+
 
 def parse_events(raw: str | list, step: Step, t: float) -> list[Event]:
     """
@@ -112,7 +205,7 @@ def parse_events(raw: str | list, step: Step, t: float) -> list[Event]:
 
 class Teacher(Protocol):
     name: str
-    def next_events(self, persona: str, step: Step, mind, rng: random.Random) -> list[dict]: ...
+    def session(self, persona: str, rng: random.Random) -> list[dict]: ...   # whole-session events
 
 
 class OfflineTeacher:
@@ -123,47 +216,107 @@ class OfflineTeacher:
     name = "offline-stub"
 
     def __init__(self, bias: float = 0.08):
-        self.bias = bias   # additive shift on bounce propensity vs psyche
+        self.bias = bias
 
-    def next_events(self, persona: str, step: Step, mind, rng: random.Random) -> list[dict]:
-        ev = evaluate_bounce(mind, step, rng)
-        # teacher disagrees with psyche by a controllable bias (the thing ε measures)
-        p_bounce = min(1.0, max(0.0, (1.0 if ev.bounced else 0.0) * (1 - self.bias) + self.bias * rng.random()))
-        evs = [{"type": "step_enter", "target": None, "value": None}]
-        if step in (Step.TARIFF_SELECT, Step.PERSONAL_DATA):
-            evs.append({"type": "price_hover", "target": "price", "value": 1})
-        evs.append({"type": "idle", "target": None, "value": round(rng.uniform(2, 14), 1)})
-        if rng.random() < p_bounce:
-            evs.append({"type": "abandon", "target": None, "value": ev.reason.value})
+    def session(self, persona: str, rng: random.Random) -> list[dict]:
+        """Build a whole timestamped session with thoughts + UX-cost events."""
+        mind = init_mind(persona, rng)
+        evs: list[dict] = []
+        t = 0.0
+        for step in STEP_ORDER[1:]:
+            if step == Step.PURCHASE:
+                evs.append({"step": step.value, "type": "step_enter", "t": round(t, 1)})
+                evs.append({"step": step.value, "type": "convert", "value": "online_purchase",
+                            "t": round(t + 0.5, 1), "thought": "done, that was painless"})
+                break
+            step_dynamics(mind, step, rng)
+            evs.append({"step": step.value, "type": "step_enter", "t": round(t, 1)}); t += rng.uniform(0.5, 2)
+            if step == Step.PERSONAL_INFO:
+                evs.append({"step": step.value, "type": "keystroke", "target": "date_of_birth",
+                            "value": 8, "t": round(t, 1), "thought": "typing my birthday"}); t += rng.uniform(2, 6)
+                evs.append({"step": step.value, "type": "dropdown_open", "target": "sv_number", "t": round(t, 1)}); t += 1
+                evs.append({"step": step.value, "type": "select", "target": "sv_number",
+                            "value": "ÖGK", "t": round(t, 1)}); t += rng.uniform(1, 3)
+            elif step == Step.TARIFF_SELECT:
+                evs.append({"step": step.value, "type": "select", "target": "optimal",
+                            "value": "optimal", "t": round(t, 1), "thought": "optimal looks right"}); t += 1
+                evs.append({"step": step.value, "type": "price_reveal", "target": "optimal",
+                            "value": 68.14, "t": round(t, 1)}); t += rng.uniform(2, 10)
+            elif step == Step.PERSONAL_DATA:
+                evs.append({"step": step.value, "type": "keystroke", "target": "email",
+                            "value": 22, "t": round(t, 1)}); t += rng.uniform(3, 9)
+            evs.append({"step": step.value, "type": "idle", "value": round(rng.uniform(2, 14), 1),
+                        "t": round(t, 1)}); t += rng.uniform(2, 14)
+            ev = evaluate_bounce(mind, step, rng)
+            p_bounce = min(1.0, max(0.0, (1.0 if ev.bounced else 0.0) * (1 - self.bias) + self.bias * rng.random()))
+            if rng.random() < p_bounce:
+                evs.append({"step": step.value, "type": "abandon", "value": ev.reason.value,
+                            "t": round(t, 1), "thought": "not now"})
+                break
+            t += rng.uniform(0.5, 2)
         return evs
 
 
-class OpenAITeacher:
-    """Real LLM teacher (OpenAI-compatible). Used when OPENAI_API_KEY is set."""
-    name = "openai-llm"
+class LLMTeacher:
+    """
+    Real LLM teacher over any OpenAI-compatible endpoint. Auto-selects provider:
+      • OPENROUTER_API_KEY → OpenRouter (base https://openrouter.ai/api/v1)
+      • else OPENAI_API_KEY → OpenAI (or OPENAI_BASE_URL)
+    """
+    name = "llm"
 
-    def __init__(self, model: str = "gpt-4o-mini"):
+    def __init__(self, model: str | None = None):
         from openai import OpenAI  # lazy import
-        self.client = OpenAI(base_url=os.getenv("OPENAI_BASE_URL") or None)
-        self.model = model
+        if os.getenv("OPENROUTER_API_KEY"):
+            self.client = OpenAI(base_url="https://openrouter.ai/api/v1",
+                                 api_key=os.getenv("OPENROUTER_API_KEY"))
+            self.model = model or os.getenv("TEACHER_MODEL", "openai/gpt-4o-mini")
+            self.name = f"openrouter:{self.model}"
+        else:
+            self.client = OpenAI(base_url=os.getenv("OPENAI_BASE_URL") or None)
+            self.model = model or os.getenv("TEACHER_MODEL", "gpt-4o-mini")
+            self.name = f"openai:{self.model}"
+        self._no_json_fmt = False
 
-    def next_events(self, persona: str, step: Step, mind, rng: random.Random) -> list[dict]:
-        msgs = build_step_prompt(persona, step)
-        resp = self.client.chat.completions.create(
-            model=self.model, messages=msgs, temperature=0.9, max_tokens=300,
-            response_format={"type": "json_object"},
-        )
+    def _call(self, msgs: list[dict]) -> str:
+        kw = dict(model=self.model, messages=msgs, temperature=0.9, max_tokens=2000)
+        if not self._no_json_fmt:
+            try:
+                r = self.client.chat.completions.create(
+                    response_format={"type": "json_object"}, **kw)
+                return r.choices[0].message.content or ""
+            except Exception:
+                self._no_json_fmt = True
+        r = self.client.chat.completions.create(**kw)
+        return r.choices[0].message.content or ""
+
+    def session(self, persona: str, rng: random.Random) -> list[dict]:
+        msgs = build_session_prompt(persona)
         try:
-            data = json.loads(resp.choices[0].message.content)
-            return data if isinstance(data, list) else data.get("events", [])
+            content = _strip_fences(self._call(msgs))
+            data = json.loads(content)
         except Exception:
             return []
+        if isinstance(data, dict):
+            return data.get("events", []) or []
+        return data if isinstance(data, list) else []
 
 
-def default_teacher() -> Teacher:
-    if os.getenv("OPENAI_API_KEY"):
+OpenAITeacher = LLMTeacher   # back-compat alias
+
+
+def _strip_fences(s: str) -> str:
+    s = s.strip()
+    if s.startswith("```"):
+        s = s.split("\n", 1)[-1] if "\n" in s else s
+        s = s.rsplit("```", 1)[0]
+    return s.strip()
+
+
+def default_teacher(model: str | None = None) -> Teacher:
+    if os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY"):
         try:
-            return OpenAITeacher()
+            return LLMTeacher(model)
         except Exception:
             pass
     return OfflineTeacher()
@@ -172,24 +325,17 @@ def default_teacher() -> Teacher:
 # ─── feed generation (schema-gated) ───────────────────────────────────────────
 
 def generate_feed(persona: str, teacher: Teacher, rng: random.Random) -> ActivityLog:
-    """Drive one full session through the teacher, schema-gating each step."""
+    """One whole-session teacher call → schema-gated ActivityLog (timestamps + thoughts)."""
     log = ActivityLog(new_session_id())
-    mind = init_mind(persona, rng)
-    t = 0.0
-    for step in STEP_ORDER[1:]:
-        if step == Step.PURCHASE:
-            log.append(Event(EventType.STEP_ENTER, step.value, t))
-            log.append(Event(EventType.CONVERT, step.value, t + 0.2, value="online_purchase"))
-            break
-        step_dynamics(mind, step, rng)
-        raw = teacher.next_events(persona, step, mind, rng)
-        evs = parse_events(raw, step, t)            # ← schema gate
-        if not evs:                                  # dropped feed → conservative continue
-            evs = [Event(EventType.STEP_ENTER, step.value, t)]
-        log.events.extend(evs)
-        t = evs[-1].t + 0.5
-        if any(e.type == EventType.ABANDON for e in evs):
-            return log
+    raw = teacher.session(persona, rng)
+    evs = parse_session(raw)                         # ← per-step action-space schema gate
+    if not evs:
+        evs = [Event(EventType.STEP_ENTER, Step.COVERAGE_TYPE.value, 0.0)]
+    cut = len(evs)
+    for i, e in enumerate(evs):
+        if e.type in (EventType.CONVERT, EventType.ABANDON):
+            cut = i + 1; break
+    log.events = evs[:cut]
     return log
 
 
@@ -264,18 +410,18 @@ if __name__ == "__main__":
     ap.add_argument("-n", type=int, default=300)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--bias", type=float, default=0.08, help="offline-teacher disagreement")
+    ap.add_argument("--model", default=None, help="teacher model (e.g. openai/gpt-4o-mini)")
+    ap.add_argument("--offline", action="store_true", help="force offline stub")
     args = ap.parse_args()
 
-    teacher = default_teacher()
-    if isinstance(teacher, OfflineTeacher):
-        teacher.bias = args.bias
+    teacher = OfflineTeacher(args.bias) if args.offline else default_teacher(args.model)
     logs, stats = generate_batch(args.n, teacher, args.seed)
     eps = epsilon_teacher_vs_psyche(stats)
 
     print(f"\n=== A1 PROBE — teacher={stats.teacher} N={stats.n} ===")
-    if stats.teacher == "offline-stub":
+    if stats.teacher.startswith("offline"):
         print("⚠️  offline stub: ε validates the PIPELINE, not a real A1 estimate.")
-        print("    Set OPENAI_API_KEY (+ OPENAI_BASE_URL) and re-run for the real number.")
+        print("    Set OPENROUTER_API_KEY (or OPENAI_API_KEY) and re-run for the real number.")
     print(f"dropped feeds (no terminal): {stats.dropped_feeds}/{stats.n}")
     print(f"ε_teacher_vs_psyche (mean abs bounce diff): {eps['epsilon_mean_abs']}  over {eps['n_cells']} cells")
     for persona, cells in eps["per_cell"].items():

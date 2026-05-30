@@ -171,3 +171,79 @@ def _sublog(parent: ActivityLog, evs: list[Event]) -> ActivityLog:
     s = ActivityLog(parent.session_id)
     s.events = evs
     return s
+
+
+# ─── UX cost (taps + keystrokes) ─────────────────────────────────────────────
+
+def ux_cost(log: ActivityLog, step: str | None = None) -> dict:
+    """Interaction effort: keystrokes + taps the user spent (per step or whole session).
+    High cost on a step is a friction signal — long forms frustrate impatient personas."""
+    evs = log.window(step=step)
+    def _sum(et):
+        return sum(int(e.value) for e in evs
+                   if e.type is et and isinstance(e.value, (int, float)) and not isinstance(e.value, bool))
+    ks, taps = _sum(EventType.KEYSTROKE), _sum(EventType.TAP)
+    by_field: dict[str, int] = {}
+    for e in evs:
+        if e.type in (EventType.KEYSTROKE, EventType.TAP) and e.target and isinstance(e.value, (int, float)):
+            by_field[e.target] = by_field.get(e.target, 0) + int(e.value)
+    return {"keystrokes": ks, "taps": taps, "total": ks + taps, "by_field": by_field}
+
+
+# ─── Engagement (read the timestamps) ─────────────────────────────────────────
+
+# a user event the timing of which is meaningful (excludes app/coach-side markers)
+_USER_ACTS = {EventType.SELECT, EventType.TAP, EventType.KEYSTROKE, EventType.FIELD_EDIT,
+              EventType.TARIFF_CLICK, EventType.PRICE_HOVER, EventType.HOVER,
+              EventType.SUBMIT, EventType.NAV_BACK, EventType.TOOLTIP_OPEN}
+
+
+def engagement(log: ActivityLog) -> dict:
+    """
+    Interpret timestamps into an engagement read. Timing is the signal:
+      • reactivity = how fast the user acts after a price_reveal / widget (low latency = reactive)
+      • cadence    = median gap between user actions (steady, small = engaged)
+      • idle / session_gap = distraction
+    Returns a label + the supporting numbers.
+    """
+    evs = sorted(log.events, key=lambda e: e.t)
+    acts = [e for e in evs if e.type in _USER_ACTS]
+    gaps = [b.t - a.t for a, b in zip(acts, acts[1:]) if b.t >= a.t]
+    cadence = _median(gaps)
+
+    triggers = [e for e in evs if e.type in (EventType.PRICE_REVEAL, EventType.WIDGET_SHOWN, EventType.STEP_ENTER)]
+    lat = []
+    for tr in triggers:
+        nxt = next((a for a in acts if a.t >= tr.t), None)
+        if nxt is not None:
+            lat.append(nxt.t - tr.t)
+    reactivity_latency = _median(lat)
+
+    idle_total = sum((e.value or 0) for e in evs
+                     if e.type in (EventType.IDLE, EventType.PAUSE) and isinstance(e.value, (int, float)))
+    distracted = any(e.type == EventType.SESSION_GAP for e in evs) or idle_total >= 25 or cadence >= 12
+
+    if distracted:
+        label = "distracted"
+    elif reactivity_latency <= 2.5 and cadence <= 5:
+        label = "reactive"
+    elif cadence <= 8:
+        label = "engaged"
+    else:
+        label = "deliberate"
+
+    return {
+        "label": label,
+        "cadence_sec": round(cadence, 2),
+        "reactivity_latency_sec": round(reactivity_latency, 2),
+        "idle_total_sec": round(float(idle_total), 1),
+        "n_user_acts": len(acts),
+    }
+
+
+def _median(xs: list[float]) -> float:
+    if not xs:
+        return 0.0
+    s = sorted(xs)
+    m = len(s) // 2
+    return s[m] if len(s) % 2 else (s[m-1] + s[m]) / 2
