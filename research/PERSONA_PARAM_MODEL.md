@@ -136,17 +136,53 @@ Findings:
    widget response** and present it, so Franz faces the real jump (a state-machine fact we
    own, not a target).
 
+## 5c. Behavioural factor model (implemented — stepwise `--state`)
+
+The per-step decision is no longer just conscious reasoning. Each step the persona weighs
+this screen's **UX-complexity grade** (a widget hypothesis) against its own traits +
+**session context**, tracks state vars, and picks a `feeling` from a layered taxonomy:
+
+| feeling | layer | trigger |
+|---|---|---|
+| `dissatisfied` | conscious | screen contradicts/undershoots `your_initial_intent` — price > hoped, advisory wall when they wanted online, unexpected/contradicting info |
+| `cant_grasp` | **subconscious** | looking at the text without absorbing it (low `comprehension` × high UX complexity) → quiet drift-off |
+| `too_much_effort` | **subconscious** | screen feels high-effort / low-reward (low `ux_willingness` × high complexity) → refuses without articulating why |
+| `distracted` | **exogenous** | a life interruption (notification, message, family duty, surroundings — traffic/conversation on mobile/commuting) pulls them away; may not return |
+| `engaged` | — | delivers what they expected → continue |
+
+**State vars tracked across steps:** `attention, satisfaction, effort_left, grasp,
+effort_vs_reward` (drop on heavy screens and as the journey wears on).
+
+**Per-step UX-complexity hypothesis** (`widget.ux_complexity`): S1/S2 low, S3 medium,
+**S4 high** (4 tariffs × 6 jargon rows, advisory badges, no 'recommended'), **S6 high**
+(long health form + final price). Tunable, not a target.
+
+**New persona dials** (on top of the 6): `ux_willingness`, `comprehension`,
+`distractibility`. **Session context** (`device` desktop/mobile + `surroundings`
+home/work/commuting) is sampled per session, persona-weighted. None of this encodes a target.
+
+**Result (gpt-4o-mini, N=20, `--stepwise --state --params`; findings stepwise_iter4/5):**
+
+| | overall conv (anchor ~.056) | **ε** | Franz (conv/.10, S4/.55, S6/.78) |
+|---|---|---|---|
+| before factors (iter2 state) | 0.445 | 0.27 | over-converts |
+| **with factors + tuned dials** | **0.050–0.10** | **0.13–0.16** | **0.10 / 0.55 / 0.78 — calibrated** |
+
+The factor model + dials moved ε 0.27 → ~0.13 and **calibrated Franz cleanly** ("final
+price jumped to €72, I feel misled"); Peter now exits with `too_much_effort` / `cant_grasp`
+as intended. Residual error: Judith/Peter over-exit at S4 (high `advisor_lean` fires as
+'leave to call') + N=20 sampling noise (ε ±0.03 run to run). Tuning/variance, not mechanism.
+
 ## 6. Recommended next steps
 
-0. **Architecture decision: stepwise + `--state` is the generator.** Whole-session can't
-   produce mid-funnel exits; pure stepwise over-converts; stepwise+state is the only mode
-   that moves S4. Drop `--quant` for stepwise.
-1. **Inject the computed S6 final price** (provisional + realistic health uplift) as a
-   widget response so the final-price jump is real → fixes Franz.
-2. **Tune dials** (coordinate descent, §5): lower Judith `price_shock_s4` (.70→~.55),
-   raise Franz `final_price_sensitivity_s6`, keep Peter. Re-validate.
-3. (superseded) per-step generator — DONE.
-
-4. Bump to a stronger teacher for the final datasets; keep mini for the tuning loop.
-5. Only then freeze dials, generate the final thought-rich datasets, and proceed to the
-   Leonardo fine-tune (then re-validate the LOCAL model with the same `research/run.py`).
+0. **Converge the dials with an auto-tuner + larger N.** Coordinate descent is now
+   bottlenecked by N=20 noise (±0.03 ε). Use N=40–50 or multi-seed averaging, and a
+   `research/tune.py` that nudges the responsible dial per failing cell (S4 over-exit →
+   lower `advisor_lean`/`price_shock_s4`; conv=0 → raise `online_completion`). Franz is at
+   target; focus on Judith/Peter `advisor_lean`.
+1. **Inject the computed S6 final price** (provisional + health uplift) as a widget
+   response so the jump is structural (mostly fixed for Franz via the dial).
+2. **Architecture is settled:** stepwise + `--state` + `--params`; `--quant` dropped.
+3. Bump to a stronger teacher for the final datasets; keep mini for the tuning loop.
+4. Then freeze dials, generate the final thought-rich datasets, and proceed to the
+   Leonardo fine-tune (re-validate the LOCAL model with the same `research/run.py`).

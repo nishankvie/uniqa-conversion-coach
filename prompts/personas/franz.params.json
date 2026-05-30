@@ -1,8 +1,11 @@
 {
-  "price_shock_s4": 0.55,
+  "price_shock_s4": 0.45,
   "complexity_overwhelm": 0.15,
-  "final_price_sensitivity_s6": 0.70,
+  "final_price_sensitivity_s6": 0.85,
   "advisor_lean": 0.05,
   "patience": 0.45,
-  "online_completion": 0.60
+  "online_completion": 0.55,
+  "ux_willingness": 0.55,
+  "comprehension": 0.85,
+  "distractibility": 0.35
 }

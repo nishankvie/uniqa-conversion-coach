@@ -39,6 +39,28 @@ TARIFFS = [
 TARIFF_ROWS = ["hoechstbetrag", "arztleistungen", "medikamente", "therapien",
                "hilfsmittel", "augen_op"]
 
+# ── UX-complexity HYPOTHESIS (per step) ───────────────────────────────────────
+# A graded guess at how 'heavy' each screen feels: field count, jargon density,
+# decision load, scannability. Fed to the persona so a heavy screen × low
+# ux_willingness/comprehension can trigger subconscious effort≫reward / can't-grasp
+# disengagement. These grades are tunable hypotheses, NOT funnel targets.
+UX_COMPLEXITY: dict[Step, dict] = {
+    Step.COVERAGE_TYPE: {"grade": "low", "load": 0.2,
+        "note": "two choice cards, one decision, no jargon"},
+    Step.INSURED: {"grade": "low", "load": 0.15,
+        "note": "single radio choice"},
+    Step.PERSONAL_INFO: {"grade": "medium", "load": 0.5,
+        "note": "date field (format-strict) + searchable SV dropdown (type-to-filter), inline validation errors"},
+    Step.TARIFF_SELECT: {"grade": "high", "load": 0.9,
+        "note": "4 tariff columns × 6 coverage rows, dense jargon (refractive eye surgery, Heilbehelfe), advisory-only badges, price comparison — high decision + comprehension load, no 'recommended for you'"},
+    Step.PERSONAL_DATA: {"grade": "high", "load": 0.85,
+        "note": "long personal + health questionnaire (many fields), then the final price reveal — high effort right before commitment"},
+}
+
+
+def ux_complexity(step: Step) -> dict:
+    return UX_COMPLEXITY.get(step, {"grade": "medium", "load": 0.5, "note": ""})
+
 
 # ─── Action space ─────────────────────────────────────────────────────────────
 

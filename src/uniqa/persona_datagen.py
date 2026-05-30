@@ -35,7 +35,7 @@ from uniqa.journey import STEP_SCREENS, render_step
 from uniqa.play import ascii_screen
 from uniqa.psyche import init_mind, step_dynamics, evaluate_bounce
 from uniqa.widget import (render_action_space, legal_events, STEP_ACTIONS,
-                          widget_response_model)
+                          widget_response_model, ux_complexity)
 
 _STEP_BY_VALUE = {s.value: s for s in Step}
 
@@ -154,8 +154,11 @@ _PARAM_TEXT = {
     "complexity_overwhelm": "Complexity overwhelm: {lvl} — too many tariffs, jargon and no clear recommendation {verb} make you give up early (S3 or S4).",
     "final_price_sensitivity_s6": "Final-price sensitivity (S6): {lvl} — if the final price is higher than the estimate, you {verb} abandon at the very end.",
     "advisor_lean": "Advisor lean: {lvl} — you {verb} prefer to stop the online flow and deal with a real person instead.",
-    "patience": "Patience: {lvl} — with LOW patience long forms {verb} exhaust you into leaving; with high patience they rarely do.",
+    "patience": "Patience: {lvl} — you {verb} stay patient through long forms; when this is LOW, long forms exhaust you into leaving.",
     "online_completion": "Online-completion drive: {lvl} — you {verb} push all the way through and finish the purchase online.",
+    "ux_willingness": "Willingness to push through heavy UI/UX: {lvl} — you {verb} push through heavy screens (many fields, jargon, many choices); when this is LOW, a heavy screen feels high-effort / low-reward and you subconsciously give up.",
+    "comprehension": "Comprehension under load: {lvl} — on dense/jargon screens you {verb} actually absorb what you read; when this is LOW you may stare at the text without grasping it and drift off.",
+    "distractibility": "Distractibility: {lvl} — real life (a phone notification, a message, family duties, your surroundings) {verb} pulls you away mid-step; if it does, you may not come back.",
 }
 
 
@@ -192,7 +195,9 @@ _INSCOPE_FLOW = [Step.COVERAGE_TYPE, Step.INSURED, Step.PERSONAL_INFO,
 def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str],
                                state: dict, *, include_quant: bool = False,
                                include_params: bool = False,
-                               include_state: bool = False) -> list[dict]:
+                               include_state: bool = False,
+                               session_context: dict | None = None,
+                               intent: str | None = None) -> list[dict]:
     """One STEP-BASED turn: emit this step's events, (optionally) track state vars, and
     make an explicit felt stay/leave decision. Returns (system, user) messages."""
     sys = agent_persona_prompt(persona)
@@ -221,23 +226,38 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
     rules.append("If a price appears (S4 select, or the S6 final price), voice EXPECTATION "
                  "vs REALITY in the thought, then decide.")
     if include_state:
-        out_schema["state"] = {"attention": "0..1", "satisfaction": "0..1", "effort_left": "0..1"}
-        out_schema["feeling"] = "engaged | distracted | dissatisfied"
+        out_schema["state"] = {"attention": "0..1", "satisfaction": "0..1",
+                               "effort_left": "0..1", "grasp": "0..1 (how much you actually understood this screen)",
+                               "effort_vs_reward": "0..1 (1 = feels worth it, 0 = lots of work for little)"}
+        out_schema["feeling"] = "engaged | distracted | cant_grasp | too_much_effort | dissatisfied"
+        if first:
+            out_schema["intent"] = "<what info/outcome you came here to reach>"
         rules += [
-            "Before deciding, check in with yourself and set `feeling`:",
-            "  • 'distracted' — your attention drifted (phone, another tab, life). You may emit "
-            "idle/tab_blur and then LEAVE because you forgot about the form / didn't come back.",
-            "  • 'dissatisfied' — something here doesn't satisfy you (price too high, too complex, "
-            "advisory wall, no clear recommendation) and you just want to CLOSE it — say what.",
-            "  • 'engaged' — you're fine to continue.",
-            "Update `state` honestly: attention/satisfaction/effort_left tend to DROP as the "
-            "journey wears on and on a bad screen; carry them forward from your_running_state.",
+            "Weigh this screen's `ux_complexity_here` against your own willingness/comprehension "
+            "and your `session_context` (device + surroundings), then set `feeling`:",
+            "  • 'distracted' — an EXOGENOUS life interruption pulled you away: a notification, a "
+            "message, family/household duty, or your surroundings (traffic, someone talking) if you "
+            "are on mobile / commuting. You may emit idle/tab_blur and then LEAVE (didn't come back).",
+            "  • 'cant_grasp' — SUBCONSCIOUS: the screen is heavy and you are looking at the text "
+            "without actually absorbing it (low grasp × high complexity) — you quietly drift off.",
+            "  • 'too_much_effort' — SUBCONSCIOUS: the screen feels high-effort for low reward; you "
+            "refuse to continue without consciously articulating why.",
+            "  • 'dissatisfied' — CONSCIOUS: the screen contradicts or undershoots what you came for "
+            "(`your_initial_intent`) — price higher than hoped, 'advisory required' when you wanted "
+            "online, unexpected/contradicting info — and you decide to close it.",
+            "  • 'engaged' — it delivers what you expected; continue.",
+            "Update `state` honestly: attention/satisfaction/effort_left/grasp/effort_vs_reward DROP on "
+            "heavy screens and as the journey wears on; carry them forward from your_running_state.",
+            "Judge the screen against `your_initial_intent`: a mismatch raises your urge to leave.",
             "Let your feeling + state drive the decision — do NOT continue just to see what's next.",
         ]
+        if first:
+            rules.append("Set `intent` on this first step: the information/outcome you actually came for.")
     user = {
         "you_are_on": step.value,
         "ui_ascii": ascii_screen(step),
         "action_space": render_action_space(step),
+        "ux_complexity_here": ux_complexity(step),
         "widget_responses_here": wrm["transitions"].get(step.value, {}),
         "conversion_definition": wrm["conversion_definition"],
         "your_running_state": state,
@@ -245,6 +265,10 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
         "output_schema": out_schema,
         "rules": rules,
     }
+    if session_context:
+        user["session_context"] = session_context
+    if intent:
+        user["your_initial_intent"] = intent
     return [{"role": "system", "content": sys},
             {"role": "user", "content": json.dumps(user, ensure_ascii=False)}]
 
@@ -471,7 +495,10 @@ class LLMTeacher:
     def _session_stepwise(self, persona: str, rng: random.Random) -> list[dict]:
         """Walk S1→S6 one LLM turn per step; each turn emits the step's events, tracks
         running state, and decides continue/leave. Returns raw events (parse_session gates)."""
-        state = {"attention": 1.0, "satisfaction": 0.7, "effort_left": 1.0}
+        state = {"attention": 1.0, "satisfaction": 0.7, "effort_left": 1.0,
+                 "grasp": 1.0, "effort_vs_reward": 0.7}
+        ctx = _sample_session_context(persona, rng) if self.include_state else None
+        intent = None
         events: list[dict] = []
         brief: list[str] = []
         t = 0.0
@@ -480,7 +507,7 @@ class LLMTeacher:
             msgs = build_step_decision_prompt(
                 persona, step, brief[-6:], state,
                 include_quant=self.include_quant, include_params=self.include_params,
-                include_state=self.include_state)
+                include_state=self.include_state, session_context=ctx, intent=intent)
             try:
                 out = json.loads(_strip_fences(self._call(msgs)))
             except Exception:
@@ -502,8 +529,10 @@ class LLMTeacher:
                 events.extend(done_here)
                 tgt = [str(e.get("target")) for e in done_here if e.get("target")]
                 brief.append(f"{step.value}: " + ", ".join(tgt[:4]) if tgt else f"{step.value}: (viewed)")
+            if isinstance(out.get("intent"), str) and not intent:
+                intent = out["intent"]
             if self.include_state and isinstance(out.get("state"), dict):
-                for k in ("attention", "satisfaction", "effort_left"):
+                for k in ("attention", "satisfaction", "effort_left", "grasp", "effort_vs_reward"):
                     if isinstance(out["state"].get(k), (int, float)):
                         state[k] = float(out["state"][k])
             if str(out.get("decision", "")).lower() == "leave":
@@ -517,6 +546,27 @@ class LLMTeacher:
         events.append({"step": Step.PURCHASE.value, "type": "convert", "value": "online_purchase",
                        "t": t + 1.0, "thought": "done — finished it online"})
         return events
+
+
+# Per-session context priors (device + surroundings) — contextual heterogeneity that
+# modulates distraction & perceived UX heaviness. Persona-weighted, NOT a funnel target.
+_DEVICE_W = {"judith": [("desktop", 0.6), ("mobile", 0.4)],
+             "franz":  [("desktop", 0.55), ("mobile", 0.45)],
+             "peter":  [("mobile", 0.65), ("desktop", 0.35)]}
+_ENV_W = {"judith": [("home, evening, kids around", 0.55), ("at work, between tasks", 0.3), ("commuting", 0.15)],
+          "franz":  [("home, focused", 0.5), ("at work, between tasks", 0.4), ("commuting", 0.1)],
+          "peter":  [("commuting / on the move", 0.4), ("home, tired after shift", 0.4), ("on a work break", 0.2)]}
+
+
+def _weighted(rng: random.Random, pairs: list[tuple[str, float]]) -> str:
+    opts, w = [p[0] for p in pairs], [p[1] for p in pairs]
+    return rng.choices(opts, weights=w, k=1)[0]
+
+
+def _sample_session_context(persona: str, rng: random.Random) -> dict:
+    device = _weighted(rng, _DEVICE_W.get(persona, [("desktop", 1.0)]))
+    env = _weighted(rng, _ENV_W.get(persona, [("home", 1.0)]))
+    return {"device": device, "surroundings": env}
 
 
 OpenAITeacher = LLMTeacher   # back-compat alias
