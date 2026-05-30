@@ -6,8 +6,9 @@ import random
 from uniqa.funnel import Step
 from uniqa.contracts import EventType
 from uniqa.persona_datagen import (
-    build_step_prompt, parse_events, OfflineTeacher, generate_feed,
-    generate_batch, epsilon_teacher_vs_psyche,
+    build_step_prompt, build_session_prompt, parse_events, OfflineTeacher,
+    generate_feed, generate_batch, epsilon_teacher_vs_psyche,
+    scrub_funnel_targets,
 )
 
 
@@ -80,3 +81,24 @@ def test_zero_bias_teacher_closer_to_psyche_than_high_bias():
     e_lo = epsilon_teacher_vs_psyche(lo)["epsilon_mean_abs"]
     e_hi = epsilon_teacher_vs_psyche(hi)["epsilon_mean_abs"]
     assert e_lo < e_hi                              # ε tracks teacher disagreement
+
+
+# ── anti-leakage: funnel-OUTCOME targets must never reach the agent prompt ──
+
+def test_scrub_removes_funnel_targets_keeps_behavioural_pct():
+    leak = ("That is the 66% drop-off at the first price screen. It includes you.\n"
+            "About 60% of customer journey activities happen via customer service.")
+    out = scrub_funnel_targets(leak)
+    assert "66%" not in out and "drop-off" not in out      # target sentence removed
+    assert "60%" in out                                     # channel prior survives
+
+
+def test_session_prompt_has_no_funnel_targets_but_has_thought_rules():
+    for persona in ("judith", "franz", "peter"):
+        msgs = build_session_prompt(persona)
+        sysmsg = msgs[0]["content"].lower()
+        for tok in ("66%", "78%", "drop-off", "5.6%"):
+            assert tok not in sysmsg, f"{persona}: leaked {tok!r}"
+        rules = " ".join(json.loads(msgs[1]["content"])["rules"]).lower()
+        assert "first event" in rules and "context" in rules     # 1st thought = context
+        assert "expectation" in rules                            # price expectation vs reality

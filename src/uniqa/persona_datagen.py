@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -57,6 +58,31 @@ _load_dotenv()
 _TRACK = Path("/tmp/zero_one_hack_01/tracks/insurance-uniqa")
 _SEGMENT = {"judith": "segment_1", "franz": "segment_2", "peter": "segment_3"}
 
+# anti-leakage: keep funnel-OUTCOME stats out of the persona system prompt. We tune
+# the prompt/training set until the anchors (S4~66%, S6~78%, ~5.6% overall, 30/50/20)
+# EMERGE; the agent must never be told them. Only sentences pairing a percentage with a
+# funnel-outcome keyword are dropped; behavioural/channel priors (e.g. 60% customer
+# service, 24% switch willingness, 39% buy simple products online) are kept.
+_PCT_RE = re.compile(r"\d{1,3}\s?%|\b(?:66|78)\b|\b5\.6\b")
+_FUNNEL_KW_RE = re.compile(
+    r"drop[- ]?off|exit point|the funnel|statistical|the official|\bconvers", re.I)
+
+
+def scrub_funnel_targets(text: str) -> str:
+    """Remove sentences that encode a funnel churn/bounce/conversion TARGET.
+
+    A sentence is dropped iff it contains a percentage-like token AND a funnel-outcome
+    keyword (so 'the 66% drop-off ... includes you' goes, '60% via customer service'
+    stays). Operates line-by-line to preserve markdown tables.
+    """
+    kept_lines = []
+    for line in text.split("\n"):
+        sentences = re.split(r"(?<=[.!?])\s+", line)
+        keep = [s for s in sentences
+                if not (_PCT_RE.search(s) and _FUNNEL_KW_RE.search(s))]
+        kept_lines.append(" ".join(keep) if len(sentences) > 1 else (keep[0] if keep else ""))
+    return "\n".join(kept_lines)
+
 # in-scope steps that can bounce (skip START / PURCHASE terminal)
 _BOUNCE_STEPS = [Step.PERSONAL_INFO, Step.TARIFF_SELECT, Step.ADDON_SELECT, Step.PERSONAL_DATA]
 
@@ -81,7 +107,9 @@ def build_step_prompt(persona: str, step: Step, atoms: list[dict] | None = None,
     """Assemble the (system, user) messages a real LLM teacher receives."""
     brief = PERSONA_BRIEFINGS.get(persona)
     persona_md = brief.read_text(encoding="utf-8") if brief and brief.exists() else f"You are {persona}."
-    sys = persona_md + "\n\nPERSONA FACTS (json):\n" + json.dumps(_persona_json_fields(persona), ensure_ascii=False)
+    sys = scrub_funnel_targets(
+        persona_md + "\n\nPERSONA FACTS (json):\n"
+        + json.dumps(_persona_json_fields(persona), ensure_ascii=False))
 
     ui_json = STEP_SCREENS.get(step, {"screen": step.value})
     workflow = {
@@ -111,8 +139,9 @@ def build_session_prompt(persona: str) -> list[dict]:
     """
     brief = PERSONA_BRIEFINGS.get(persona)
     persona_md = brief.read_text(encoding="utf-8") if brief and brief.exists() else f"You are {persona}."
-    sys = (persona_md + "\n\nPERSONA FACTS (json):\n"
-           + json.dumps(_persona_json_fields(persona), ensure_ascii=False))
+    sys = scrub_funnel_targets(
+        persona_md + "\n\nPERSONA FACTS (json):\n"
+        + json.dumps(_persona_json_fields(persona), ensure_ascii=False))
     widget = {s.value: {"ui_ascii": ascii_screen(s), "action_space": render_action_space(s)}
               for s in STEP_ACTIONS}
     instruction = {
@@ -122,7 +151,9 @@ def build_session_prompt(persona: str) -> list[dict]:
             '{"events":[ ... ]}. Each event: '
             '{"step": <step id>, "type": <event_type>, "target": <str|null>, '
             '"value": <num|bool|str|null>, "t": <seconds since start, absolute & increasing>, '
-            '"thought": <short first-person motivation>}.'
+            '"thought": <short first-person motivation>}. '
+            "Behave exactly as THIS persona would — do not aim for any particular outcome; "
+            "let convert-or-abandon fall out of how the journey actually feels to you."
         ),
         "rules": [
             "Only use action atoms / event types legal for that step (see action_space.legal_event_types).",
@@ -130,6 +161,9 @@ def build_session_prompt(persona: str) -> list[dict]:
             "On the tariff step, select_tariff reveals a price (emit price_reveal); clicking opt_plus/premium is a premium_click (advisory-only).",
             "Timestamps matter: small gaps = reactive/engaged, large idle/session_gap = distracted. Pace the session like THIS persona really would.",
             "Bei Arztbesuchen + Ich selbst + Start/Optimal is the only online-completable path; hospital, other-persons, Opt.Plus/Premium route to an advisor (abandon online).",
+            "THOUGHTS carry your reasoning. The FIRST event's thought must set context: who is arriving, what triggered this visit, and what you expect/want from the session.",
+            "At every price_reveal, the thought must voice EXPECTATION vs REALITY (e.g. 'hoped for ~60, 68 is ok' / 'estimate said 68, now 71 — annoying').",
+            "If you abandon, the thought may reveal the gap between your STATED and REAL reason (you might 'just think about it' while the real driver is something specific).",
             "End with exactly one terminal event: convert (online purchase) or abandon (with a value naming why).",
         ],
         "widget": widget,
