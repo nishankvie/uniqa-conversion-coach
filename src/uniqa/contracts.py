@@ -39,6 +39,9 @@ SCHEMA_VERSION = "1.0"
 
 class EventType(Enum):
     STEP_ENTER     = "step_enter"
+    MOUSE_MOVE     = "mouse_move"        # low-level; collapsed by eventproc
+    HOVER          = "hover"             # cursor dwell over an element
+    PAUSE          = "pause"             # no input for a while (micro)
     FIELD_FOCUS    = "field_focus"
     FIELD_BLUR     = "field_blur"
     FIELD_EDIT     = "field_edit"
