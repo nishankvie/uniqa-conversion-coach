@@ -99,13 +99,6 @@ def main(argv=None) -> int:
     teacher = LLMTeacher(args.model, include_params=True, stepwise=True, include_state=True)
     ts = time.strftime("%Y%m%d_%H%M%S")
     log = [f"# Dial tuning — N={args.n}, rounds={args.rounds}, teacher={teacher.name}, {ts}\n"]
-    # persisted global best across runs (codex P2: don't let a noisy re-run regress)
-    gbest = {"eps": 1e9}
-    if GLOBAL_BEST.exists():
-        try:
-            gbest = json.loads(GLOBAL_BEST.read_text())
-        except Exception:
-            pass
     best = {"eps": 1e9, "params": {p: load_params(p) for p in PERSONAS}, "round": -1}
 
     for rnd in range(args.rounds):
@@ -143,15 +136,16 @@ def main(argv=None) -> int:
                     msg = f"    tune {p}: {diff}"
                     print(msg); log.append(msg)
 
-    # reconcile with the persisted global best: keep whichever ε is lower
-    if best["eps"] <= gbest["eps"]:
-        GLOBAL_BEST.write_text(json.dumps({"eps": best["eps"], "params": best["params"]}, indent=2))
-        chosen, src = best["params"], f"this run (round {best['round']}, ε={best['eps']})"
-    else:
-        chosen, src = gbest["params"], f"persisted global best (ε={gbest['eps']})"
+    # Keep THIS run's best params. (We do NOT revert to a persisted global-best: ε is only
+    # comparable within the same model/prompt version, so a stale lower ε from an earlier
+    # model would wrongly regress us. global-best is written for record only.)
     for p in PERSONAS:
-        save_params(p, chosen[p])
-    foot = f"\n→ kept {src}."
+        save_params(p, best["params"][p])
+    GLOBAL_BEST.write_text(json.dumps(
+        {"eps": best["eps"], "round": best["round"], "params": best["params"],
+         "note": "record of this run's best; ε only comparable within the same model version"},
+        indent=2))
+    foot = f"\n→ kept this run's best (round {best['round']}, ε={best['eps']}); global-best updated for record."
     print(foot); log.append(foot)
 
     out = Path(__file__).resolve().parent / "runs" / f"tune_{ts}.md"
