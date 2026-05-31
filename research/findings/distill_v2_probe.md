@@ -52,3 +52,40 @@ the FULL prompt. Binomial noise at n=100 ≈ ±0.10.
 
 Net: only ~10% (~550 tok) is safely removable; the prompt is mostly signal. Trim shipped as the
 opt-in `lean=True` flag (default off → v1/datagen unchanged); `datagen_v2` uses it.
+
+---
+
+# Exact v2 dataset statistics (research/v2_stats.py)
+
+2400 rows, decision balance continue 1658 / leave 742 (**leave share 0.309**). Per-step
+leave-rate vs anchors (n=160/cell, Wilson 95% CI):
+
+| step | judith (t) | franz (t) | peter (t) |
+|---|---|---|---|
+| S3 | 0.025 (0.05) | 0.00 (0.04) | 0.206 (0.25) |
+| S4 | 0.944 (0.70) Δ.24 | 0.419 (0.55) Δ.13 | 0.844 (0.80) |
+| S6 | 0.700 (0.68) | 0.681 (0.78) | 0.819 (0.72) |
+
+**ε = 0.0828 (< 0.12 gate)**; implied weighted conversion 0.102 (anchor 0.083). Strong; only
+judith S4 is a real outlier (calibration target). These are per-step rates over the sampled
+state mix, not a coherent rollout.
+
+# Single-prompt vs stepwise generation are NOT equivalent (research/compare_gen.py)
+
+N=40/persona, OpenRouter teacher, both methods, validated vs anchors:
+
+| | single whole-session prompt | stepwise rollout |
+|---|---|---|
+| overall ε | **0.314 (fails)** | **0.112 (≈gate)** |
+| S4 churn (j/f/p) | **0.00 / 0.00 / 0.00** | 0.90 / 0.42 / 0.89 |
+| S6 churn | 0.82–0.90 | 0.43–0.75 |
+
+**The single whole-session prompt produces 0% S4 churn for every persona** — it pushes everyone
+past the first price wall and concentrates all abandonment at S6. The teacher, when writing the
+entire journey in one call, plans a coherent arc and biases toward *complete-then-decide*; it
+cannot authentically bail mid-funnel. Deciding **one step at a time, blind to the future**, it
+abandons at the price wall like a real user.
+
+**Conclusion:** per-step (stepwise) generation is **necessary**, not just convenient — it's the
+only way to reproduce the documented mid-funnel (S4) drop-off. This justifies the v2 per-step
+distillation architecture end-to-end.
