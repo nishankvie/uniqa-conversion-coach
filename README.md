@@ -173,10 +173,13 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
 pytest -q                                      # full suite (80 tests)
-python -m research.datagen_v2 build --workers 48 --out datasets/persona_v4   # regen persona data (S1–S7)
 python -m deferred.autoresearch --rounds 30    # gated coach self-improvement on the sim
 streamlit run demo/streamlit_app.py            # interactive demo
 ```
+
+> **Persona data regeneration** (requires `OPENAI_API_KEY` in `.env`):
+> `python -m research.datagen_v2 build --workers 48 --out datasets/persona_v4`
+> Not needed to run the demo — only required if you want to retrain the persona model from scratch.
 
 ## Layout
 
