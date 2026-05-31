@@ -117,15 +117,22 @@ def classify(raw: str) -> str | None:
 
 def _k_sample(teacher: LLMTeacher, ctx: dict, K: int) -> dict:
     msgs = build(ctx)
-    labels = []
+    outs, labels = [], []
     for _ in range(K):
-        labels.append(classify(teacher._call(msgs)))
+        raw = None
+        for _retry in range(3):                # crash-safe under high concurrency (429/backoff)
+            try:
+                raw = teacher._call(msgs); break
+            except Exception:
+                time.sleep(1.5 * (_retry + 1))
+        outs.append(raw)
+        labels.append(classify(raw) if raw else None)
     valid = [x for x in labels if x]
     leave = sum(1 for x in valid if x == "leave")
     return {"persona": ctx["persona"], "step": ctx["step"].value, "mood": ctx["mood"],
             "intent": ctx["intent"], "K": K, "valid": len(valid),
             "leave": leave, "leave_rate": round(leave / len(valid), 3) if valid else None,
-            "messages": msgs, "labels": labels}
+            "messages": msgs, "labels": labels, "outputs": outs}
 
 
 def run(personas, steps, M, K, workers, seed) -> list[dict]:
@@ -183,17 +190,31 @@ def main(argv=None):
 
     if args.mode == "build":
         out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
+        n, dec = 0, Counter()
         with (out / "sft_steps.jsonl").open("w") as fh:
             for r in rows:
-                # one SFT row per K-sample → natural balancing of leave/stay
-                for lab in r["labels"]:
-                    if lab is None:
+                # one SFT row per valid K-sample → natural leave/stay balance per context
+                for raw, lab in zip(r["outputs"], r["labels"]):
+                    if raw is None or lab is None:
                         continue
-                fh.write("")  # placeholder; full writer in Task 3
+                    fh.write(json.dumps({"persona": r["persona"], "step": r["step"],
+                                         "input_messages": r["messages"], "output": _strip_fences(raw),
+                                         "decision": lab, "leave_rate": r["leave_rate"]},
+                                        ensure_ascii=False) + "\n")
+                    n += 1; dec[lab] += 1
         (out / "soft_labels.jsonl").write_text(
             "\n".join(json.dumps({k: r[k] for k in ("persona", "step", "mood", "intent",
-                                                    "leave_rate", "valid")}) for r in rows))
-        print(f"wrote soft labels → {out}")
+                                                    "leave_rate", "valid")}) for r in rows) + "\n")
+        from uniqa.persona_datagen import agent_persona_prompt
+        from research.tune import load_params
+        (out / "manifest.json").write_text(json.dumps({
+            "mode": "per-step state-covering K-sampled (lean prompt)", "teacher": "openrouter:gpt-4o-mini",
+            "M": args.M, "K": args.K, "n_contexts": len(rows), "n_sft_rows": n,
+            "decision_balance": dict(dec), "prompt": "FULL" if args.full else "LEAN",
+            "params": {p: load_params(p) for p in PERSONAS},
+            "persona_prompt_chars": {p: len(agent_persona_prompt(p)) for p in PERSONAS},
+        }, indent=2, ensure_ascii=False))
+        print(f"\n=== dataset {out} ===  sft_rows={n}  decision_balance={dict(dec)}")
     return 0
 
 
