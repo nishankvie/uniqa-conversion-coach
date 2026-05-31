@@ -1,0 +1,15 @@
+{
+ "start_state": {"attention": 0.5, "satisfaction": 0.5, "effort_left": 0.6, "grasp": 0.55, "effort_vs_reward": 0.5},
+ "pools": {
+  "time_pressure": ["calm, has time", "rushed, wants it done fast", "moderate, a free evening slot", "curious, in no hurry"],
+  "visit_goal": ["researching, might buy if it fits", "just checking the price", "ready to buy if nothing goes wrong", "comparing against another insurer", "wants to see the final monthly number"],
+  "familiarity": ["first time here \u2014 unfamiliar with the steps", "been here before \u2014 knows the steps, inputs mechanically", "vaguely remembers it from a while ago"],
+  "price_expectation": ["flexible on price", "has a firm budget in mind", "expects it to be cheap", "no idea what it should cost"],
+  "advisor_need_today": ["wants human reassurance before committing", "prefers to do it all online", "open to advice but not seeking it", "definitely wants to talk to a person"],
+  "screening_confidence": ["comfortable with forms/health questions", "wary of health questions", "fine with forms, dislikes health questions"],
+  "coverage_need": ["just routine GP/specialist visits", "wants strong hospital coverage", "worried about a specific condition", "wants dental too", "comprehensive private care"],
+  "open_question": ["wants to know if their own doctor is in-network", "unsure which tariff fits", "wants to know about waiting periods", "worried about premium increases later"],
+  "recalls_measurements": ["not sure of their exact height/weight", "knows their height/weight"],
+  "age": [29, 34, 38, 41, 45, 47, 52, 58]
+ }
+}

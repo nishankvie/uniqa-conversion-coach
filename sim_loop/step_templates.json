@@ -1,0 +1,1014 @@
+{
+ "S1_COVERAGE_TYPE": {
+  "you_are_on": "S1_COVERAGE_TYPE",
+  "ui_ascii": "\n ┌─ Angaben ───────────────────────────────────┐\n │  Wo möchten Sie abgesichert sein?            │\n │   [ Bei Arztbesuchen ]   [ Im Krankenhaus ]  │\n └──────────────────────────────────────────────┘",
+  "action_space": {
+   "step": "S1_COVERAGE_TYPE",
+   "progress": [
+    "Angaben",
+    "Produkt",
+    "Empfehlung",
+    "Abschluss"
+   ],
+   "actions": [
+    {
+     "kind": "select_card",
+     "target": "bei_arztbesuchen"
+    },
+    {
+     "kind": "select_card",
+     "target": "im_krankenhaus"
+    },
+    {
+     "kind": "nav_next",
+     "target": null
+    }
+   ],
+   "legal_event_types": [
+    "abandon",
+    "convert",
+    "field_blur",
+    "field_focus",
+    "hover",
+    "idle",
+    "mouse_move",
+    "nav_back",
+    "pause",
+    "select",
+    "session_gap",
+    "step_enter",
+    "submit",
+    "tab_blur",
+    "tab_focus",
+    "tap"
+   ]
+  },
+  "ux_complexity_here": {
+   "grade": "low",
+   "load": 0.2,
+   "note": "two choice cards, one decision, no jargon"
+  },
+  "cognitive_model": {
+   "price_reaction_rule": "You have NO innate 'price sensitivity'. When real prices appear (S4 shows `tariff_economics_for_your_age`: monthly, annual = monthly×12, and the yearly coverage limit per tariff), your reaction EMERGES: (a) compare the price to what you pictured (`session_instance.price_expectation`); (b) weigh how much it strains you (`budget_pressure`); (c) if you are value-minded (`value_orientation` × your `grasp`), do the FEASIBILITY math — annual cost vs the coverage limit vs how much private care you'd realistically use (a healthy person may judge the cheap plan poor value: paying a big fraction of a small limit you won't use up). A price above your picture, a budget strain, OR a worth-it calculation that fails pushes you toward leaving / wanting advice — otherwise it's fine.",
+   "commitment_rule": "S6 gives personal + HEALTH data, then shows the FINAL price/proposal. Real things here: (1) PRICE may JUMP — the `final_price` block shows provisional (S4) vs final; if your health answers added a ~6-10% loading the final is HIGHER, which triggers the SAME price reaction as S4 (above `price_expectation`, straining `budget_pressure`, failing your value math → you bail, especially if you hate surprises). The rise is UNEXPLAINED, so a price-sensitive / uncertainty-averse person reacts with a DELAY first — emit idle/pause, re-read, and a confused thought ('why did it go up? which answer caused this?') — THEN decide; do not bail instantly. (2) the form asks height/weight — if `session_instance.recalls_measurements` says you're unsure, that's friction (you guess, get annoyed, or stall). (3) the binding commitment itself: `commitment_anxiety` + `uncertainty_aversion` + drain (`effort_left`) + `advisor_lean`. UNIVERSAL TRUTH: finishing a health-insurance purchase online in one sitting is the EXCEPTION (insurance abandons ~84% of carts) — even decisive shoppers often stop to finish later or check with someone. If your `visit_goal` was to see the final price/proposal, you may read it here and leave CONTENT.",
+   "coverage_reaction_rule": "At the tariff/coverage steps, also check whether YOUR `session_instance.coverage_need` is met using `tariff_coverage_brief`: if it's EXCLUDED from all tariffs (dental, cosmetic, standalone psychotherapy) → leave (coverage_mismatch); if it's only in Optimal/higher and the price strains you → upgrade-or-leave tension; if you genuinely can't tell what differs between Start and Optimal → package-confusion (cant_grasp / dissatisfied). If you hold an `open_question` the interface can't answer and can't resolve it → unanswered_question. Many people carry a concrete, specific need or doubt — let it shape your reaction, don't default to a generic one.",
+   "decision_rule": "Leave when a state variable crosses your tolerance, via the feeling that fired. Your `session_instance.visit_goal` (price-check vs research vs ready-to-buy) is your drive to push through — a price-checker leaves CONTENT once they see the number (goal_achieved). Weigh it against the leave pressures. Do NOT continue merely to see what's next."
+  },
+  "widget_responses_here": {
+   "select bei_arztbesuchen, then Weiter": "advances to S2",
+   "select im_krankenhaus": "OUT OF SCOPE → advisor handoff; online session ends, no online purchase",
+   "Weiter with nothing selected": "inline validation_error, stays on S1"
+  },
+  "conversion_definition": "A conversion = ONLINE purchase of Start or Optimal on the 'Bei Arztbesuchen' + 'Ich selbst' path. Advisor handoff or leaving the page is NOT a conversion.",
+  "output_schema": {
+   "events": [
+    {
+     "step": "S1_COVERAGE_TYPE",
+     "type": "<legal type>",
+     "target": "<str|null>",
+     "value": "<num|bool|str|null>",
+     "t": "<rel seconds on THIS step>",
+     "thought": "<short first-person>"
+    }
+   ],
+   "decision": "continue | leave",
+   "reason": "<first-person why>",
+   "state": {
+    "attention": "0..1",
+    "satisfaction": "0..1",
+    "effort_left": "0..1",
+    "grasp": "0..1 (how much you actually understood this screen)",
+    "effort_vs_reward": "0..1 (1 = feels worth it, 0 = lots of work for little)"
+   },
+   "feeling": "engaged | distracted | cant_grasp | too_much_effort | dissatisfied | goal_achieved | coverage_mismatch | unanswered_question",
+   "intent": "<what info/outcome you came here to reach>"
+  },
+  "rules": [
+   "Emit ONLY what you do on THIS step (this step's events).",
+   "Only use event types in action_space.legal_event_types.",
+   "Respect widget_response_model: actions have the stated effects; hospital / other-persons / Opt.Plus / Premium hand off to an advisor (leave = online abandon, not a conversion).",
+   "This is your FIRST step: the first event's thought must set context — who you are arriving as, what triggered this visit, what you expect.",
+   "If a price appears (S4 select, or the S6 final price), voice EXPECTATION vs REALITY in the thought, then decide.",
+   "Set `feeling` from this screen vs your willingness/comprehension/session_context: distracted (exogenous interruption — notification/family/surroundings on mobile/commute → may idle/tab_blur then leave) · cant_grasp (heavy screen, low grasp×high complexity → quietly drift off) · too_much_effort (high effort for low reward → refuse) · dissatisfied (contradicts/undershoots your_initial_intent: price higher than hoped, 'advisory required' when you wanted online → close) · goal_achieved (if visit_goal was CHECK/COMPARE/SEE-FINAL-PRICE not buy → leave content once you've seen the number) · coverage_mismatch (your session_instance.coverage_need not covered → leave) · unanswered_question (you have an open_question and no way to ask → leave) · engaged (delivers what you expected → continue).",
+   "If familiarity = been here before: input mechanically/fast, skip reading, beeline to price.",
+   "Update `state` honestly (drops on heavy screens / as the journey wears; carry from your_running_state); judge vs your_initial_intent; let feeling+state drive the decision — don't continue just to see what's next.",
+   "Set `intent` on this first step: the information/outcome you actually came for."
+  ]
+ },
+ "S2_INSURED_PERSONS": {
+  "you_are_on": "S2_INSURED_PERSONS",
+  "ui_ascii": "\n ┌─ Angaben ───────────────────────────────────┐\n │  Wer soll versichert werden?                 │\n │   [ Ich selbst ]   [ Andere Personen ]       │\n └──────────────────────────────────────────────┘",
+  "action_space": {
+   "step": "S2_INSURED_PERSONS",
+   "progress": [
+    "Angaben",
+    "Produkt",
+    "Empfehlung",
+    "Abschluss"
+   ],
+   "actions": [
+    {
+     "kind": "select_card",
+     "target": "ich_selbst"
+    },
+    {
+     "kind": "select_card",
+     "target": "andere_personen"
+    },
+    {
+     "kind": "nav_next",
+     "target": null
+    },
+    {
+     "kind": "nav_back",
+     "target": null
+    }
+   ],
+   "legal_event_types": [
+    "abandon",
+    "convert",
+    "field_blur",
+    "field_focus",
+    "hover",
+    "idle",
+    "mouse_move",
+    "nav_back",
+    "pause",
+    "select",
+    "session_gap",
+    "step_enter",
+    "submit",
+    "tab_blur",
+    "tab_focus",
+    "tap"
+   ]
+  },
+  "ux_complexity_here": {
+   "grade": "low",
+   "load": 0.15,
+   "note": "single radio choice"
+  },
+  "cognitive_model": {
+   "price_reaction_rule": "You have NO innate 'price sensitivity'. When real prices appear (S4 shows `tariff_economics_for_your_age`: monthly, annual = monthly×12, and the yearly coverage limit per tariff), your reaction EMERGES: (a) compare the price to what you pictured (`session_instance.price_expectation`); (b) weigh how much it strains you (`budget_pressure`); (c) if you are value-minded (`value_orientation` × your `grasp`), do the FEASIBILITY math — annual cost vs the coverage limit vs how much private care you'd realistically use (a healthy person may judge the cheap plan poor value: paying a big fraction of a small limit you won't use up). A price above your picture, a budget strain, OR a worth-it calculation that fails pushes you toward leaving / wanting advice — otherwise it's fine.",
+   "commitment_rule": "S6 gives personal + HEALTH data, then shows the FINAL price/proposal. Real things here: (1) PRICE may JUMP — the `final_price` block shows provisional (S4) vs final; if your health answers added a ~6-10% loading the final is HIGHER, which triggers the SAME price reaction as S4 (above `price_expectation`, straining `budget_pressure`, failing your value math → you bail, especially if you hate surprises). The rise is UNEXPLAINED, so a price-sensitive / uncertainty-averse person reacts with a DELAY first — emit idle/pause, re-read, and a confused thought ('why did it go up? which answer caused this?') — THEN decide; do not bail instantly. (2) the form asks height/weight — if `session_instance.recalls_measurements` says you're unsure, that's friction (you guess, get annoyed, or stall). (3) the binding commitment itself: `commitment_anxiety` + `uncertainty_aversion` + drain (`effort_left`) + `advisor_lean`. UNIVERSAL TRUTH: finishing a health-insurance purchase online in one sitting is the EXCEPTION (insurance abandons ~84% of carts) — even decisive shoppers often stop to finish later or check with someone. If your `visit_goal` was to see the final price/proposal, you may read it here and leave CONTENT.",
+   "coverage_reaction_rule": "At the tariff/coverage steps, also check whether YOUR `session_instance.coverage_need` is met using `tariff_coverage_brief`: if it's EXCLUDED from all tariffs (dental, cosmetic, standalone psychotherapy) → leave (coverage_mismatch); if it's only in Optimal/higher and the price strains you → upgrade-or-leave tension; if you genuinely can't tell what differs between Start and Optimal → package-confusion (cant_grasp / dissatisfied). If you hold an `open_question` the interface can't answer and can't resolve it → unanswered_question. Many people carry a concrete, specific need or doubt — let it shape your reaction, don't default to a generic one.",
+   "decision_rule": "Leave when a state variable crosses your tolerance, via the feeling that fired. Your `session_instance.visit_goal` (price-check vs research vs ready-to-buy) is your drive to push through — a price-checker leaves CONTENT once they see the number (goal_achieved). Weigh it against the leave pressures. Do NOT continue merely to see what's next."
+  },
+  "widget_responses_here": {
+   "select ich_selbst, then Weiter": "advances to S3",
+   "select andere_personen": "OUT OF SCOPE → advisor handoff"
+  },
+  "conversion_definition": "A conversion = ONLINE purchase of Start or Optimal on the 'Bei Arztbesuchen' + 'Ich selbst' path. Advisor handoff or leaving the page is NOT a conversion.",
+  "output_schema": {
+   "events": [
+    {
+     "step": "S2_INSURED_PERSONS",
+     "type": "<legal type>",
+     "target": "<str|null>",
+     "value": "<num|bool|str|null>",
+     "t": "<rel seconds on THIS step>",
+     "thought": "<short first-person>"
+    }
+   ],
+   "decision": "continue | leave",
+   "reason": "<first-person why>",
+   "state": {
+    "attention": "0..1",
+    "satisfaction": "0..1",
+    "effort_left": "0..1",
+    "grasp": "0..1 (how much you actually understood this screen)",
+    "effort_vs_reward": "0..1 (1 = feels worth it, 0 = lots of work for little)"
+   },
+   "feeling": "engaged | distracted | cant_grasp | too_much_effort | dissatisfied | goal_achieved | coverage_mismatch | unanswered_question"
+  },
+  "rules": [
+   "Emit ONLY what you do on THIS step (this step's events).",
+   "Only use event types in action_space.legal_event_types.",
+   "Respect widget_response_model: actions have the stated effects; hospital / other-persons / Opt.Plus / Premium hand off to an advisor (leave = online abandon, not a conversion).",
+   "If a price appears (S4 select, or the S6 final price), voice EXPECTATION vs REALITY in the thought, then decide.",
+   "Set `feeling` from this screen vs your willingness/comprehension/session_context: distracted (exogenous interruption — notification/family/surroundings on mobile/commute → may idle/tab_blur then leave) · cant_grasp (heavy screen, low grasp×high complexity → quietly drift off) · too_much_effort (high effort for low reward → refuse) · dissatisfied (contradicts/undershoots your_initial_intent: price higher than hoped, 'advisory required' when you wanted online → close) · goal_achieved (if visit_goal was CHECK/COMPARE/SEE-FINAL-PRICE not buy → leave content once you've seen the number) · coverage_mismatch (your session_instance.coverage_need not covered → leave) · unanswered_question (you have an open_question and no way to ask → leave) · engaged (delivers what you expected → continue).",
+   "If familiarity = been here before: input mechanically/fast, skip reading, beeline to price.",
+   "Update `state` honestly (drops on heavy screens / as the journey wears; carry from your_running_state); judge vs your_initial_intent; let feeling+state drive the decision — don't continue just to see what's next."
+  ]
+ },
+ "S3_PERSONAL_INFO": {
+  "you_are_on": "S3_PERSONAL_INFO",
+  "ui_ascii": "\n ┌─ Angaben ───────────────────────────────────┐\n │  Für Ihre Prämie benötigen wir:              │\n │   Geburtsdatum [____.__.____]                │\n │   SV-Nummer    [__________]                  │\n └──────────────────────────────────────────────┘",
+  "action_space": {
+   "step": "S3_PERSONAL_INFO",
+   "progress": [
+    "Angaben",
+    "Produkt",
+    "Empfehlung",
+    "Abschluss"
+   ],
+   "actions": [
+    {
+     "kind": "type_field",
+     "target": "date_of_birth"
+    },
+    {
+     "kind": "open_dropdown",
+     "target": "sv_number"
+    },
+    {
+     "kind": "filter_type",
+     "target": "sv_number"
+    },
+    {
+     "kind": "select_option",
+     "target": "sv_number"
+    },
+    {
+     "kind": "nav_next",
+     "target": null
+    },
+    {
+     "kind": "nav_back",
+     "target": null
+    }
+   ],
+   "legal_event_types": [
+    "abandon",
+    "convert",
+    "dropdown_open",
+    "field_blur",
+    "field_edit",
+    "field_focus",
+    "hover",
+    "idle",
+    "keystroke",
+    "mouse_move",
+    "nav_back",
+    "pause",
+    "select",
+    "session_gap",
+    "step_enter",
+    "submit",
+    "tab_blur",
+    "tab_focus",
+    "tap",
+    "validation_error"
+   ],
+   "sv_options": [
+    "ÖGK",
+    "BVAEB-OEB",
+    "SVS Landwirtschaft",
+    "SVS gew.Wirtschaft Sach",
+    "BVAEB-EB",
+    "KFA Wien,NÖ,Sbg,Ktn"
+   ]
+  },
+  "ux_complexity_here": {
+   "grade": "medium",
+   "load": 0.5,
+   "note": "date field (format-strict) + searchable SV dropdown (type-to-filter), inline validation errors"
+  },
+  "cognitive_model": {
+   "price_reaction_rule": "You have NO innate 'price sensitivity'. When real prices appear (S4 shows `tariff_economics_for_your_age`: monthly, annual = monthly×12, and the yearly coverage limit per tariff), your reaction EMERGES: (a) compare the price to what you pictured (`session_instance.price_expectation`); (b) weigh how much it strains you (`budget_pressure`); (c) if you are value-minded (`value_orientation` × your `grasp`), do the FEASIBILITY math — annual cost vs the coverage limit vs how much private care you'd realistically use (a healthy person may judge the cheap plan poor value: paying a big fraction of a small limit you won't use up). A price above your picture, a budget strain, OR a worth-it calculation that fails pushes you toward leaving / wanting advice — otherwise it's fine.",
+   "commitment_rule": "S6 gives personal + HEALTH data, then shows the FINAL price/proposal. Real things here: (1) PRICE may JUMP — the `final_price` block shows provisional (S4) vs final; if your health answers added a ~6-10% loading the final is HIGHER, which triggers the SAME price reaction as S4 (above `price_expectation`, straining `budget_pressure`, failing your value math → you bail, especially if you hate surprises). The rise is UNEXPLAINED, so a price-sensitive / uncertainty-averse person reacts with a DELAY first — emit idle/pause, re-read, and a confused thought ('why did it go up? which answer caused this?') — THEN decide; do not bail instantly. (2) the form asks height/weight — if `session_instance.recalls_measurements` says you're unsure, that's friction (you guess, get annoyed, or stall). (3) the binding commitment itself: `commitment_anxiety` + `uncertainty_aversion` + drain (`effort_left`) + `advisor_lean`. UNIVERSAL TRUTH: finishing a health-insurance purchase online in one sitting is the EXCEPTION (insurance abandons ~84% of carts) — even decisive shoppers often stop to finish later or check with someone. If your `visit_goal` was to see the final price/proposal, you may read it here and leave CONTENT.",
+   "coverage_reaction_rule": "At the tariff/coverage steps, also check whether YOUR `session_instance.coverage_need` is met using `tariff_coverage_brief`: if it's EXCLUDED from all tariffs (dental, cosmetic, standalone psychotherapy) → leave (coverage_mismatch); if it's only in Optimal/higher and the price strains you → upgrade-or-leave tension; if you genuinely can't tell what differs between Start and Optimal → package-confusion (cant_grasp / dissatisfied). If you hold an `open_question` the interface can't answer and can't resolve it → unanswered_question. Many people carry a concrete, specific need or doubt — let it shape your reaction, don't default to a generic one.",
+   "decision_rule": "Leave when a state variable crosses your tolerance, via the feeling that fired. Your `session_instance.visit_goal` (price-check vs research vs ready-to-buy) is your drive to push through — a price-checker leaves CONTENT once they see the number (goal_achieved). Weigh it against the leave pressures. Do NOT continue merely to see what's next."
+  },
+  "widget_responses_here": {
+   "valid DOB + pick Sozialversicherung, then Weiter": "advances to S4 (the price step)",
+   "invalid/empty DOB or SV, then Weiter": "inline validation_error, stays on S3"
+  },
+  "conversion_definition": "A conversion = ONLINE purchase of Start or Optimal on the 'Bei Arztbesuchen' + 'Ich selbst' path. Advisor handoff or leaving the page is NOT a conversion.",
+  "output_schema": {
+   "events": [
+    {
+     "step": "S3_PERSONAL_INFO",
+     "type": "<legal type>",
+     "target": "<str|null>",
+     "value": "<num|bool|str|null>",
+     "t": "<rel seconds on THIS step>",
+     "thought": "<short first-person>"
+    }
+   ],
+   "decision": "continue | leave",
+   "reason": "<first-person why>",
+   "state": {
+    "attention": "0..1",
+    "satisfaction": "0..1",
+    "effort_left": "0..1",
+    "grasp": "0..1 (how much you actually understood this screen)",
+    "effort_vs_reward": "0..1 (1 = feels worth it, 0 = lots of work for little)"
+   },
+   "feeling": "engaged | distracted | cant_grasp | too_much_effort | dissatisfied | goal_achieved | coverage_mismatch | unanswered_question"
+  },
+  "rules": [
+   "Emit ONLY what you do on THIS step (this step's events).",
+   "Only use event types in action_space.legal_event_types.",
+   "Respect widget_response_model: actions have the stated effects; hospital / other-persons / Opt.Plus / Premium hand off to an advisor (leave = online abandon, not a conversion).",
+   "If a price appears (S4 select, or the S6 final price), voice EXPECTATION vs REALITY in the thought, then decide.",
+   "Set `feeling` from this screen vs your willingness/comprehension/session_context: distracted (exogenous interruption — notification/family/surroundings on mobile/commute → may idle/tab_blur then leave) · cant_grasp (heavy screen, low grasp×high complexity → quietly drift off) · too_much_effort (high effort for low reward → refuse) · dissatisfied (contradicts/undershoots your_initial_intent: price higher than hoped, 'advisory required' when you wanted online → close) · goal_achieved (if visit_goal was CHECK/COMPARE/SEE-FINAL-PRICE not buy → leave content once you've seen the number) · coverage_mismatch (your session_instance.coverage_need not covered → leave) · unanswered_question (you have an open_question and no way to ask → leave) · engaged (delivers what you expected → continue).",
+   "If familiarity = been here before: input mechanically/fast, skip reading, beeline to price.",
+   "Update `state` honestly (drops on heavy screens / as the journey wears; carry from your_running_state); judge vs your_initial_intent; let feeling+state drive the decision — don't continue just to see what's next."
+  ]
+ },
+ "S4_TARIFF_SELECT": {
+  "you_are_on": "S4_TARIFF_SELECT",
+  "ui_ascii": "\n ┌─ Produkt ─ Tarifauswahl ─────────────────────┐\n │  Start  €38,74 ✅   Optimal €68,14 ✅          │\n │  Opt.Plus €96,66 ☎   Premium €140,15 ☎        │\n └──────────────────────────────────────────────┘",
+  "action_space": {
+   "step": "S4_TARIFF_SELECT",
+   "progress": [
+    "Angaben",
+    "Produkt",
+    "Empfehlung",
+    "Abschluss"
+   ],
+   "actions": [
+    {
+     "kind": "select_tariff",
+     "target": "start"
+    },
+    {
+     "kind": "select_tariff",
+     "target": "optimal"
+    },
+    {
+     "kind": "select_tariff",
+     "target": "opt_plus"
+    },
+    {
+     "kind": "select_tariff",
+     "target": "premium"
+    },
+    {
+     "kind": "open_tooltip",
+     "target": "hoechstbetrag"
+    },
+    {
+     "kind": "open_tooltip",
+     "target": "arztleistungen"
+    },
+    {
+     "kind": "open_tooltip",
+     "target": "medikamente"
+    },
+    {
+     "kind": "open_tooltip",
+     "target": "therapien"
+    },
+    {
+     "kind": "open_tooltip",
+     "target": "hilfsmittel"
+    },
+    {
+     "kind": "open_tooltip",
+     "target": "augen_op"
+    },
+    {
+     "kind": "nav_next",
+     "target": null
+    },
+    {
+     "kind": "nav_back",
+     "target": null
+    }
+   ],
+   "legal_event_types": [
+    "abandon",
+    "convert",
+    "field_blur",
+    "field_focus",
+    "hover",
+    "idle",
+    "mouse_move",
+    "nav_back",
+    "pause",
+    "premium_click",
+    "price_hover",
+    "price_reveal",
+    "select",
+    "session_gap",
+    "step_enter",
+    "submit",
+    "tab_blur",
+    "tab_focus",
+    "tap",
+    "tariff_click",
+    "tooltip_open"
+   ],
+   "tariffs": [
+    {
+     "id": "start",
+     "name": "Start",
+     "price_eur": 38.74,
+     "online": true,
+     "max_year": 1400
+    },
+    {
+     "id": "optimal",
+     "name": "Optimal",
+     "price_eur": 68.14,
+     "online": true,
+     "max_year": 2800
+    },
+    {
+     "id": "opt_plus",
+     "name": "Opt. Plus",
+     "price_eur": 96.66,
+     "online": false,
+     "max_year": 4200
+    },
+    {
+     "id": "premium",
+     "name": "Premium",
+     "price_eur": 140.15,
+     "online": false,
+     "max_year": 8400
+    }
+   ],
+   "tooltip_rows": [
+    "hoechstbetrag",
+    "arztleistungen",
+    "medikamente",
+    "therapien",
+    "hilfsmittel",
+    "augen_op"
+   ]
+  },
+  "ux_complexity_here": {
+   "grade": "high",
+   "load": 0.9,
+   "note": "4 tariff columns × 6 coverage rows, dense jargon (refractive eye surgery, Heilbehelfe), advisory-only badges, price comparison — high decision + comprehension load, no 'recommended for you'"
+  },
+  "tariff_coverage_brief": {
+   "start_covers": "GP & specialist visits (conventional + alternative medicine), telemedicine, diagnostics (X-ray/CT/MRI/lab), outpatient surgery (NOT eye laser), preventive checkups, medications €280/yr, vaccinations. Annual max €1,400.",
+   "start_excludes": "physiotherapy, psychotherapy, occupational/speech therapy, osteopathy/massage, medical aids (Heilbehelfe), glasses/contacts, laser eye surgery.",
+   "optimal_adds": "therapies incl. physio & psychotherapy (€560/yr), medical aids + glasses/contacts + laser eye surgery, double medications (€560), higher doctor cover (€1,400). Annual max €2,800.",
+   "never_covered_any_tariff": "dental / oral surgery, cosmetic procedures, gym memberships, standalone psychotherapy, strength training, alcohol/substance conditions.",
+   "jargon": {
+    "Refraktive Augen-OP": "laser eye surgery",
+    "Heilbehelfe": "medical aids (crutches, braces)",
+    "Schulmedizin": "conventional medicine",
+    "Alternativmedizin": "alternative/complementary medicine"
+   },
+   "gotchas": "9-month waiting period for pregnancy/childbirth; premiums can rise ~0–13%/yr; upgrade Start→Optimal allowed only after 3 years. There is NO interface here to ask a custom question (e.g. 'is my treatment covered?', 'is my doctor in-network?')."
+  },
+  "tariff_economics_for_your_age": {
+   "age": 56,
+   "tariffs": {
+    "start": {
+     "monthly_eur": 48.76,
+     "annual_eur": 585.12,
+     "coverage_limit_eur_per_year": 1400
+    },
+    "optimal": {
+     "monthly_eur": 85.55,
+     "annual_eur": 1026.6,
+     "coverage_limit_eur_per_year": 2800
+    },
+    "opt_plus": {
+     "monthly_eur": 125.83,
+     "annual_eur": 1509.96,
+     "coverage_limit_eur_per_year": 4200
+    },
+    "premium": {
+     "monthly_eur": 182.45,
+     "annual_eur": 2189.4,
+     "coverage_limit_eur_per_year": 8400
+    }
+   },
+   "note": "annual_eur = monthly x 12; coverage_limit is the max the plan pays out per year. A value-minded person weighs annual cost vs that limit vs how much private care they'd realistically use."
+  },
+  "cognitive_model": {
+   "price_reaction_rule": "You have NO innate 'price sensitivity'. When real prices appear (S4 shows `tariff_economics_for_your_age`: monthly, annual = monthly×12, and the yearly coverage limit per tariff), your reaction EMERGES: (a) compare the price to what you pictured (`session_instance.price_expectation`); (b) weigh how much it strains you (`budget_pressure`); (c) if you are value-minded (`value_orientation` × your `grasp`), do the FEASIBILITY math — annual cost vs the coverage limit vs how much private care you'd realistically use (a healthy person may judge the cheap plan poor value: paying a big fraction of a small limit you won't use up). A price above your picture, a budget strain, OR a worth-it calculation that fails pushes you toward leaving / wanting advice — otherwise it's fine.",
+   "commitment_rule": "S6 gives personal + HEALTH data, then shows the FINAL price/proposal. Real things here: (1) PRICE may JUMP — the `final_price` block shows provisional (S4) vs final; if your health answers added a ~6-10% loading the final is HIGHER, which triggers the SAME price reaction as S4 (above `price_expectation`, straining `budget_pressure`, failing your value math → you bail, especially if you hate surprises). The rise is UNEXPLAINED, so a price-sensitive / uncertainty-averse person reacts with a DELAY first — emit idle/pause, re-read, and a confused thought ('why did it go up? which answer caused this?') — THEN decide; do not bail instantly. (2) the form asks height/weight — if `session_instance.recalls_measurements` says you're unsure, that's friction (you guess, get annoyed, or stall). (3) the binding commitment itself: `commitment_anxiety` + `uncertainty_aversion` + drain (`effort_left`) + `advisor_lean`. UNIVERSAL TRUTH: finishing a health-insurance purchase online in one sitting is the EXCEPTION (insurance abandons ~84% of carts) — even decisive shoppers often stop to finish later or check with someone. If your `visit_goal` was to see the final price/proposal, you may read it here and leave CONTENT.",
+   "coverage_reaction_rule": "At the tariff/coverage steps, also check whether YOUR `session_instance.coverage_need` is met using `tariff_coverage_brief`: if it's EXCLUDED from all tariffs (dental, cosmetic, standalone psychotherapy) → leave (coverage_mismatch); if it's only in Optimal/higher and the price strains you → upgrade-or-leave tension; if you genuinely can't tell what differs between Start and Optimal → package-confusion (cant_grasp / dissatisfied). If you hold an `open_question` the interface can't answer and can't resolve it → unanswered_question. Many people carry a concrete, specific need or doubt — let it shape your reaction, don't default to a generic one.",
+   "decision_rule": "Leave when a state variable crosses your tolerance, via the feeling that fired. Your `session_instance.visit_goal` (price-check vs research vs ready-to-buy) is your drive to push through — a price-checker leaves CONTENT once they see the number (goal_achieved). Weigh it against the leave pressures. Do NOT continue merely to see what's next."
+  },
+  "widget_responses_here": {
+   "select start": "reveals Start ≈€38.74/mo (price_reveal; the exact figure depends on your AGE) and advances to S6",
+   "select optimal": "reveals Optimal ≈€68.14/mo (price_reveal; depends on your AGE) and advances to S6",
+   "click opt_plus or premium": "shows 'Beratung erforderlich' (advisory-only) — does NOT advance; must pick Start/Optimal to finish online",
+   "open (i) tooltip on a coverage row": "shows a one-line explanation; stays on S4",
+   "Weiter with no tariff selected": "validation_error"
+  },
+  "conversion_definition": "A conversion = ONLINE purchase of Start or Optimal on the 'Bei Arztbesuchen' + 'Ich selbst' path. Advisor handoff or leaving the page is NOT a conversion.",
+  "output_schema": {
+   "events": [
+    {
+     "step": "S4_TARIFF_SELECT",
+     "type": "<legal type>",
+     "target": "<str|null>",
+     "value": "<num|bool|str|null>",
+     "t": "<rel seconds on THIS step>",
+     "thought": "<short first-person>"
+    }
+   ],
+   "decision": "continue | leave",
+   "reason": "<first-person why>",
+   "state": {
+    "attention": "0..1",
+    "satisfaction": "0..1",
+    "effort_left": "0..1",
+    "grasp": "0..1 (how much you actually understood this screen)",
+    "effort_vs_reward": "0..1 (1 = feels worth it, 0 = lots of work for little)"
+   },
+   "feeling": "engaged | distracted | cant_grasp | too_much_effort | dissatisfied | goal_achieved | coverage_mismatch | unanswered_question"
+  },
+  "rules": [
+   "Emit ONLY what you do on THIS step (this step's events).",
+   "Only use event types in action_space.legal_event_types.",
+   "Respect widget_response_model: actions have the stated effects; hospital / other-persons / Opt.Plus / Premium hand off to an advisor (leave = online abandon, not a conversion).",
+   "If a price appears (S4 select, or the S6 final price), voice EXPECTATION vs REALITY in the thought, then decide.",
+   "Set `feeling` from this screen vs your willingness/comprehension/session_context: distracted (exogenous interruption — notification/family/surroundings on mobile/commute → may idle/tab_blur then leave) · cant_grasp (heavy screen, low grasp×high complexity → quietly drift off) · too_much_effort (high effort for low reward → refuse) · dissatisfied (contradicts/undershoots your_initial_intent: price higher than hoped, 'advisory required' when you wanted online → close) · goal_achieved (if visit_goal was CHECK/COMPARE/SEE-FINAL-PRICE not buy → leave content once you've seen the number) · coverage_mismatch (your session_instance.coverage_need not covered → leave) · unanswered_question (you have an open_question and no way to ask → leave) · engaged (delivers what you expected → continue).",
+   "If familiarity = been here before: input mechanically/fast, skip reading, beeline to price.",
+   "Update `state` honestly (drops on heavy screens / as the journey wears; carry from your_running_state); judge vs your_initial_intent; let feeling+state drive the decision — don't continue just to see what's next."
+  ]
+ },
+ "S5_ADDON_SELECT": {
+  "you_are_on": "S5_ADDON_SELECT",
+  "ui_ascii": "\n ┌─ Produkt ────────────────────────────┐\n │  Zusatzoptionen (optional)                   │\n │   [ ] Selbstbehalt   [ ] Wahlarzt-Plus       │\n │   [ ] Auslandsschutz                         │\n └────────────────────────────┘",
+  "action_space": {
+   "step": "S5_ADDON_SELECT",
+   "progress": [
+    "Angaben",
+    "Produkt",
+    "Empfehlung",
+    "Abschluss"
+   ],
+   "actions": [
+    {
+     "kind": "toggle",
+     "target": "selbstbehalt"
+    },
+    {
+     "kind": "toggle",
+     "target": "wahlarzt_plus"
+    },
+    {
+     "kind": "toggle",
+     "target": "auslandsschutz"
+    },
+    {
+     "kind": "nav_next",
+     "target": null
+    }
+   ],
+   "legal_event_types": [
+    "abandon",
+    "convert",
+    "field_blur",
+    "field_focus",
+    "hover",
+    "idle",
+    "mouse_move",
+    "nav_back",
+    "pause",
+    "premium_click",
+    "price_hover",
+    "price_reveal",
+    "select",
+    "session_gap",
+    "step_enter",
+    "submit",
+    "tab_blur",
+    "tab_focus",
+    "tap",
+    "tariff_click",
+    "tooltip_open"
+   ]
+  },
+  "ux_complexity_here": {
+   "grade": "medium",
+   "load": 0.45,
+   "note": "optional add-ons, mild choice overload; skippable"
+  },
+  "tariff_coverage_brief": {
+   "start_covers": "GP & specialist visits (conventional + alternative medicine), telemedicine, diagnostics (X-ray/CT/MRI/lab), outpatient surgery (NOT eye laser), preventive checkups, medications €280/yr, vaccinations. Annual max €1,400.",
+   "start_excludes": "physiotherapy, psychotherapy, occupational/speech therapy, osteopathy/massage, medical aids (Heilbehelfe), glasses/contacts, laser eye surgery.",
+   "optimal_adds": "therapies incl. physio & psychotherapy (€560/yr), medical aids + glasses/contacts + laser eye surgery, double medications (€560), higher doctor cover (€1,400). Annual max €2,800.",
+   "never_covered_any_tariff": "dental / oral surgery, cosmetic procedures, gym memberships, standalone psychotherapy, strength training, alcohol/substance conditions.",
+   "jargon": {
+    "Refraktive Augen-OP": "laser eye surgery",
+    "Heilbehelfe": "medical aids (crutches, braces)",
+    "Schulmedizin": "conventional medicine",
+    "Alternativmedizin": "alternative/complementary medicine"
+   },
+   "gotchas": "9-month waiting period for pregnancy/childbirth; premiums can rise ~0–13%/yr; upgrade Start→Optimal allowed only after 3 years. There is NO interface here to ask a custom question (e.g. 'is my treatment covered?', 'is my doctor in-network?')."
+  },
+  "tariff_economics_for_your_age": {
+   "age": 56,
+   "tariffs": {
+    "start": {
+     "monthly_eur": 48.76,
+     "annual_eur": 585.12,
+     "coverage_limit_eur_per_year": 1400
+    },
+    "optimal": {
+     "monthly_eur": 85.55,
+     "annual_eur": 1026.6,
+     "coverage_limit_eur_per_year": 2800
+    },
+    "opt_plus": {
+     "monthly_eur": 125.83,
+     "annual_eur": 1509.96,
+     "coverage_limit_eur_per_year": 4200
+    },
+    "premium": {
+     "monthly_eur": 182.45,
+     "annual_eur": 2189.4,
+     "coverage_limit_eur_per_year": 8400
+    }
+   },
+   "note": "annual_eur = monthly x 12; coverage_limit is the max the plan pays out per year. A value-minded person weighs annual cost vs that limit vs how much private care they'd realistically use."
+  },
+  "cognitive_model": {
+   "price_reaction_rule": "You have NO innate 'price sensitivity'. When real prices appear (S4 shows `tariff_economics_for_your_age`: monthly, annual = monthly×12, and the yearly coverage limit per tariff), your reaction EMERGES: (a) compare the price to what you pictured (`session_instance.price_expectation`); (b) weigh how much it strains you (`budget_pressure`); (c) if you are value-minded (`value_orientation` × your `grasp`), do the FEASIBILITY math — annual cost vs the coverage limit vs how much private care you'd realistically use (a healthy person may judge the cheap plan poor value: paying a big fraction of a small limit you won't use up). A price above your picture, a budget strain, OR a worth-it calculation that fails pushes you toward leaving / wanting advice — otherwise it's fine.",
+   "commitment_rule": "S6 gives personal + HEALTH data, then shows the FINAL price/proposal. Real things here: (1) PRICE may JUMP — the `final_price` block shows provisional (S4) vs final; if your health answers added a ~6-10% loading the final is HIGHER, which triggers the SAME price reaction as S4 (above `price_expectation`, straining `budget_pressure`, failing your value math → you bail, especially if you hate surprises). The rise is UNEXPLAINED, so a price-sensitive / uncertainty-averse person reacts with a DELAY first — emit idle/pause, re-read, and a confused thought ('why did it go up? which answer caused this?') — THEN decide; do not bail instantly. (2) the form asks height/weight — if `session_instance.recalls_measurements` says you're unsure, that's friction (you guess, get annoyed, or stall). (3) the binding commitment itself: `commitment_anxiety` + `uncertainty_aversion` + drain (`effort_left`) + `advisor_lean`. UNIVERSAL TRUTH: finishing a health-insurance purchase online in one sitting is the EXCEPTION (insurance abandons ~84% of carts) — even decisive shoppers often stop to finish later or check with someone. If your `visit_goal` was to see the final price/proposal, you may read it here and leave CONTENT.",
+   "coverage_reaction_rule": "At the tariff/coverage steps, also check whether YOUR `session_instance.coverage_need` is met using `tariff_coverage_brief`: if it's EXCLUDED from all tariffs (dental, cosmetic, standalone psychotherapy) → leave (coverage_mismatch); if it's only in Optimal/higher and the price strains you → upgrade-or-leave tension; if you genuinely can't tell what differs between Start and Optimal → package-confusion (cant_grasp / dissatisfied). If you hold an `open_question` the interface can't answer and can't resolve it → unanswered_question. Many people carry a concrete, specific need or doubt — let it shape your reaction, don't default to a generic one.",
+   "decision_rule": "Leave when a state variable crosses your tolerance, via the feeling that fired. Your `session_instance.visit_goal` (price-check vs research vs ready-to-buy) is your drive to push through — a price-checker leaves CONTENT once they see the number (goal_achieved). Weigh it against the leave pressures. Do NOT continue merely to see what's next."
+  },
+  "widget_responses_here": {
+   "toggle any add-on, then Weiter": "advances to S6",
+   "Weiter with nothing selected": "advances to S6 (add-ons are optional)"
+  },
+  "conversion_definition": "A conversion = ONLINE purchase of Start or Optimal on the 'Bei Arztbesuchen' + 'Ich selbst' path. Advisor handoff or leaving the page is NOT a conversion.",
+  "output_schema": {
+   "events": [
+    {
+     "step": "S4_TARIFF_SELECT",
+     "type": "<legal type>",
+     "target": "<str|null>",
+     "value": "<num|bool|str|null>",
+     "t": "<rel seconds on THIS step>",
+     "thought": "<short first-person>"
+    }
+   ],
+   "decision": "continue | leave",
+   "reason": "<first-person why>",
+   "state": {
+    "attention": "0..1",
+    "satisfaction": "0..1",
+    "effort_left": "0..1",
+    "grasp": "0..1 (how much you actually understood this screen)",
+    "effort_vs_reward": "0..1 (1 = feels worth it, 0 = lots of work for little)"
+   },
+   "feeling": "engaged | distracted | cant_grasp | too_much_effort | dissatisfied | goal_achieved | coverage_mismatch | unanswered_question"
+  },
+  "rules": [
+   "Emit ONLY what you do on THIS step (this step's events).",
+   "Only use event types in action_space.legal_event_types.",
+   "Respect widget_response_model: actions have the stated effects; hospital / other-persons / Opt.Plus / Premium hand off to an advisor (leave = online abandon, not a conversion).",
+   "If a price appears (S4 select, or the S6 final price), voice EXPECTATION vs REALITY in the thought, then decide.",
+   "Set `feeling` from this screen vs your willingness/comprehension/session_context: distracted (exogenous interruption — notification/family/surroundings on mobile/commute → may idle/tab_blur then leave) · cant_grasp (heavy screen, low grasp×high complexity → quietly drift off) · too_much_effort (high effort for low reward → refuse) · dissatisfied (contradicts/undershoots your_initial_intent: price higher than hoped, 'advisory required' when you wanted online → close) · goal_achieved (if visit_goal was CHECK/COMPARE/SEE-FINAL-PRICE not buy → leave content once you've seen the number) · coverage_mismatch (your session_instance.coverage_need not covered → leave) · unanswered_question (you have an open_question and no way to ask → leave) · engaged (delivers what you expected → continue).",
+   "If familiarity = been here before: input mechanically/fast, skip reading, beeline to price.",
+   "Update `state` honestly (drops on heavy screens / as the journey wears; carry from your_running_state); judge vs your_initial_intent; let feeling+state drive the decision — don't continue just to see what's next."
+  ]
+ },
+ "S6_PERSONAL_DATA": {
+  "you_are_on": "S6_PERSONAL_DATA",
+  "ui_ascii": "\n ┌─ Abschluss ─ Daten + Gesundheitsfragen ──────┐\n │  Vorname[____] Name[____] E-Mail[________]    │\n │  SV-Nr[______]  Gesundheitsfragen [ ... ]     │\n │  Endpreis: €68,14/Monat        [ Abschließen ]│\n └──────────────────────────────────────────────┘",
+  "action_space": {
+   "step": "S6_PERSONAL_DATA",
+   "progress": [
+    "Angaben",
+    "Produkt",
+    "Empfehlung",
+    "Abschluss"
+   ],
+   "actions": [
+    {
+     "kind": "type_field",
+     "target": "first_name"
+    },
+    {
+     "kind": "type_field",
+     "target": "last_name"
+    },
+    {
+     "kind": "type_field",
+     "target": "email"
+    },
+    {
+     "kind": "type_field",
+     "target": "sv_number"
+    },
+    {
+     "kind": "type_field",
+     "target": "height"
+    },
+    {
+     "kind": "type_field",
+     "target": "weight"
+    },
+    {
+     "kind": "type_field",
+     "target": "sport"
+    },
+    {
+     "kind": "type_field",
+     "target": "doctor"
+    },
+    {
+     "kind": "type_field",
+     "target": "health_answers"
+    },
+    {
+     "kind": "submit",
+     "target": null
+    },
+    {
+     "kind": "nav_back",
+     "target": null
+    }
+   ],
+   "legal_event_types": [
+    "abandon",
+    "cancel_hover",
+    "convert",
+    "field_blur",
+    "field_edit",
+    "field_focus",
+    "hover",
+    "idle",
+    "keystroke",
+    "mouse_move",
+    "nav_back",
+    "pause",
+    "price_reveal",
+    "session_gap",
+    "step_enter",
+    "submit",
+    "tab_blur",
+    "tab_focus",
+    "tap",
+    "validation_error"
+   ]
+  },
+  "ux_complexity_here": {
+   "grade": "high",
+   "load": 0.85,
+   "note": "long personal + health questionnaire (many fields), then the final price reveal — high effort right before commitment"
+  },
+  "final_price": {
+   "provisional_eur_seen_at_s4": 42.01,
+   "final_eur_after_health_questions": 42.01,
+   "increase_pct": 0.0,
+   "note": "No risk loading — the final price equals the €42.01 you saw at S4."
+  },
+  "cognitive_model": {
+   "price_reaction_rule": "You have NO innate 'price sensitivity'. When real prices appear (S4 shows `tariff_economics_for_your_age`: monthly, annual = monthly×12, and the yearly coverage limit per tariff), your reaction EMERGES: (a) compare the price to what you pictured (`session_instance.price_expectation`); (b) weigh how much it strains you (`budget_pressure`); (c) if you are value-minded (`value_orientation` × your `grasp`), do the FEASIBILITY math — annual cost vs the coverage limit vs how much private care you'd realistically use (a healthy person may judge the cheap plan poor value: paying a big fraction of a small limit you won't use up). A price above your picture, a budget strain, OR a worth-it calculation that fails pushes you toward leaving / wanting advice — otherwise it's fine.",
+   "commitment_rule": "S6 gives personal + HEALTH data, then shows the FINAL price/proposal. Real things here: (1) PRICE may JUMP — the `final_price` block shows provisional (S4) vs final; if your health answers added a ~6-10% loading the final is HIGHER, which triggers the SAME price reaction as S4 (above `price_expectation`, straining `budget_pressure`, failing your value math → you bail, especially if you hate surprises). The rise is UNEXPLAINED, so a price-sensitive / uncertainty-averse person reacts with a DELAY first — emit idle/pause, re-read, and a confused thought ('why did it go up? which answer caused this?') — THEN decide; do not bail instantly. (2) the form asks height/weight — if `session_instance.recalls_measurements` says you're unsure, that's friction (you guess, get annoyed, or stall). (3) the binding commitment itself: `commitment_anxiety` + `uncertainty_aversion` + drain (`effort_left`) + `advisor_lean`. UNIVERSAL TRUTH: finishing a health-insurance purchase online in one sitting is the EXCEPTION (insurance abandons ~84% of carts) — even decisive shoppers often stop to finish later or check with someone. If your `visit_goal` was to see the final price/proposal, you may read it here and leave CONTENT.",
+   "coverage_reaction_rule": "At the tariff/coverage steps, also check whether YOUR `session_instance.coverage_need` is met using `tariff_coverage_brief`: if it's EXCLUDED from all tariffs (dental, cosmetic, standalone psychotherapy) → leave (coverage_mismatch); if it's only in Optimal/higher and the price strains you → upgrade-or-leave tension; if you genuinely can't tell what differs between Start and Optimal → package-confusion (cant_grasp / dissatisfied). If you hold an `open_question` the interface can't answer and can't resolve it → unanswered_question. Many people carry a concrete, specific need or doubt — let it shape your reaction, don't default to a generic one.",
+   "decision_rule": "Leave when a state variable crosses your tolerance, via the feeling that fired. Your `session_instance.visit_goal` (price-check vs research vs ready-to-buy) is your drive to push through — a price-checker leaves CONTENT once they see the number (goal_achieved). Weigh it against the leave pressures. Do NOT continue merely to see what's next."
+  },
+  "widget_responses_here": {
+   "fill name/email/SV + health answers, then submit": "shows the FINAL price/proposal: usually = the S4 provisional, but the health answers MAY add a ~6-10% risk loading so the final is higher. Also asks height/weight (friction if not recalled). The binding commitment + a possible higher final are the real bounce triggers here",
+   "Abschließen": "ONLINE PURCHASE → convert"
+  },
+  "conversion_definition": "A conversion = ONLINE purchase of Start or Optimal on the 'Bei Arztbesuchen' + 'Ich selbst' path. Advisor handoff or leaving the page is NOT a conversion.",
+  "output_schema": {
+   "events": [
+    {
+     "step": "S6_PERSONAL_DATA",
+     "type": "<legal type>",
+     "target": "<str|null>",
+     "value": "<num|bool|str|null>",
+     "t": "<rel seconds on THIS step>",
+     "thought": "<short first-person>"
+    }
+   ],
+   "decision": "continue | leave",
+   "reason": "<first-person why>",
+   "state": {
+    "attention": "0..1",
+    "satisfaction": "0..1",
+    "effort_left": "0..1",
+    "grasp": "0..1 (how much you actually understood this screen)",
+    "effort_vs_reward": "0..1 (1 = feels worth it, 0 = lots of work for little)"
+   },
+   "feeling": "engaged | distracted | cant_grasp | too_much_effort | dissatisfied | goal_achieved | coverage_mismatch | unanswered_question"
+  },
+  "rules": [
+   "Emit ONLY what you do on THIS step (this step's events).",
+   "Only use event types in action_space.legal_event_types.",
+   "Respect widget_response_model: actions have the stated effects; hospital / other-persons / Opt.Plus / Premium hand off to an advisor (leave = online abandon, not a conversion).",
+   "If a price appears (S4 select, or the S6 final price), voice EXPECTATION vs REALITY in the thought, then decide.",
+   "Set `feeling` from this screen vs your willingness/comprehension/session_context: distracted (exogenous interruption — notification/family/surroundings on mobile/commute → may idle/tab_blur then leave) · cant_grasp (heavy screen, low grasp×high complexity → quietly drift off) · too_much_effort (high effort for low reward → refuse) · dissatisfied (contradicts/undershoots your_initial_intent: price higher than hoped, 'advisory required' when you wanted online → close) · goal_achieved (if visit_goal was CHECK/COMPARE/SEE-FINAL-PRICE not buy → leave content once you've seen the number) · coverage_mismatch (your session_instance.coverage_need not covered → leave) · unanswered_question (you have an open_question and no way to ask → leave) · engaged (delivers what you expected → continue).",
+   "If familiarity = been here before: input mechanically/fast, skip reading, beeline to price.",
+   "Update `state` honestly (drops on heavy screens / as the journey wears; carry from your_running_state); judge vs your_initial_intent; let feeling+state drive the decision — don't continue just to see what's next."
+  ]
+ },
+ "S7_HEALTH_QUESTIONS": {
+  "you_are_on": "S7_HEALTH_QUESTIONS",
+  "ui_ascii": "\n ┌─ Abschluss ────────────────────────┐\n │  Gesundheitsfragen                           │\n │  Größe [____] cm   Gewicht [____] kg          │\n │  Raucher?  ( ) Ja  ( ) Nein                   │\n │  Vorerkrankungen?  ( ) Ja  ( ) Nein           │\n │  Laufende Behandlungen?  ( ) Ja  ( ) Nein     │\n └────────────────────────┘",
+  "action_space": {
+   "step": "S7_HEALTH_QUESTIONS",
+   "progress": [
+    "Angaben",
+    "Produkt",
+    "Empfehlung",
+    "Abschluss"
+   ],
+   "actions": [
+    {
+     "kind": "field_edit",
+     "target": "hoehe_cm"
+    },
+    {
+     "kind": "field_edit",
+     "target": "gewicht_kg"
+    },
+    {
+     "kind": "select",
+     "target": "raucher"
+    },
+    {
+     "kind": "select",
+     "target": "vorerkrankungen"
+    },
+    {
+     "kind": "select",
+     "target": "laufende_behandlungen"
+    },
+    {
+     "kind": "submit",
+     "target": null
+    }
+   ],
+   "legal_event_types": [
+    "abandon",
+    "cancel_hover",
+    "convert",
+    "field_blur",
+    "field_edit",
+    "field_focus",
+    "hover",
+    "idle",
+    "keystroke",
+    "mouse_move",
+    "nav_back",
+    "pause",
+    "price_reveal",
+    "session_gap",
+    "step_enter",
+    "submit",
+    "tab_blur",
+    "tab_focus",
+    "tap",
+    "validation_error"
+   ]
+  },
+  "ux_complexity_here": {
+   "grade": "high",
+   "load": 0.7,
+   "note": "health screening: privacy friction, recall effort (height/weight), feels invasive"
+  },
+  "final_price": {
+   "provisional_eur_seen_at_s4": 42.01,
+   "final_eur_after_health_questions": 42.01,
+   "increase_pct": 0.0,
+   "note": "No risk loading — the final price equals the €42.01 you saw at S4."
+  },
+  "cognitive_model": {
+   "price_reaction_rule": "You have NO innate 'price sensitivity'. When real prices appear (S4 shows `tariff_economics_for_your_age`: monthly, annual = monthly×12, and the yearly coverage limit per tariff), your reaction EMERGES: (a) compare the price to what you pictured (`session_instance.price_expectation`); (b) weigh how much it strains you (`budget_pressure`); (c) if you are value-minded (`value_orientation` × your `grasp`), do the FEASIBILITY math — annual cost vs the coverage limit vs how much private care you'd realistically use (a healthy person may judge the cheap plan poor value: paying a big fraction of a small limit you won't use up). A price above your picture, a budget strain, OR a worth-it calculation that fails pushes you toward leaving / wanting advice — otherwise it's fine.",
+   "commitment_rule": "S6 gives personal + HEALTH data, then shows the FINAL price/proposal. Real things here: (1) PRICE may JUMP — the `final_price` block shows provisional (S4) vs final; if your health answers added a ~6-10% loading the final is HIGHER, which triggers the SAME price reaction as S4 (above `price_expectation`, straining `budget_pressure`, failing your value math → you bail, especially if you hate surprises). The rise is UNEXPLAINED, so a price-sensitive / uncertainty-averse person reacts with a DELAY first — emit idle/pause, re-read, and a confused thought ('why did it go up? which answer caused this?') — THEN decide; do not bail instantly. (2) the form asks height/weight — if `session_instance.recalls_measurements` says you're unsure, that's friction (you guess, get annoyed, or stall). (3) the binding commitment itself: `commitment_anxiety` + `uncertainty_aversion` + drain (`effort_left`) + `advisor_lean`. UNIVERSAL TRUTH: finishing a health-insurance purchase online in one sitting is the EXCEPTION (insurance abandons ~84% of carts) — even decisive shoppers often stop to finish later or check with someone. If your `visit_goal` was to see the final price/proposal, you may read it here and leave CONTENT.",
+   "coverage_reaction_rule": "At the tariff/coverage steps, also check whether YOUR `session_instance.coverage_need` is met using `tariff_coverage_brief`: if it's EXCLUDED from all tariffs (dental, cosmetic, standalone psychotherapy) → leave (coverage_mismatch); if it's only in Optimal/higher and the price strains you → upgrade-or-leave tension; if you genuinely can't tell what differs between Start and Optimal → package-confusion (cant_grasp / dissatisfied). If you hold an `open_question` the interface can't answer and can't resolve it → unanswered_question. Many people carry a concrete, specific need or doubt — let it shape your reaction, don't default to a generic one.",
+   "decision_rule": "Leave when a state variable crosses your tolerance, via the feeling that fired. Your `session_instance.visit_goal` (price-check vs research vs ready-to-buy) is your drive to push through — a price-checker leaves CONTENT once they see the number (goal_achieved). Weigh it against the leave pressures. Do NOT continue merely to see what's next."
+  },
+  "widget_responses_here": {
+   "fill all fields, then Weiter": "advances to S8 (final review); a Yes to pre-existing conditions may add a health loading to the final premium",
+   "submit with missing fields": "inline validation_error, stays on S7"
+  },
+  "conversion_definition": "A conversion = ONLINE purchase of Start or Optimal on the 'Bei Arztbesuchen' + 'Ich selbst' path. Advisor handoff or leaving the page is NOT a conversion.",
+  "output_schema": {
+   "events": [
+    {
+     "step": "S6_PERSONAL_DATA",
+     "type": "<legal type>",
+     "target": "<str|null>",
+     "value": "<num|bool|str|null>",
+     "t": "<rel seconds on THIS step>",
+     "thought": "<short first-person>"
+    }
+   ],
+   "decision": "continue | leave",
+   "reason": "<first-person why>",
+   "state": {
+    "attention": "0..1",
+    "satisfaction": "0..1",
+    "effort_left": "0..1",
+    "grasp": "0..1 (how much you actually understood this screen)",
+    "effort_vs_reward": "0..1 (1 = feels worth it, 0 = lots of work for little)"
+   },
+   "feeling": "engaged | distracted | cant_grasp | too_much_effort | dissatisfied | goal_achieved | coverage_mismatch | unanswered_question"
+  },
+  "rules": [
+   "Emit ONLY what you do on THIS step (this step's events).",
+   "Only use event types in action_space.legal_event_types.",
+   "Respect widget_response_model: actions have the stated effects; hospital / other-persons / Opt.Plus / Premium hand off to an advisor (leave = online abandon, not a conversion).",
+   "If a price appears (S4 select, or the S6 final price), voice EXPECTATION vs REALITY in the thought, then decide.",
+   "Set `feeling` from this screen vs your willingness/comprehension/session_context: distracted (exogenous interruption — notification/family/surroundings on mobile/commute → may idle/tab_blur then leave) · cant_grasp (heavy screen, low grasp×high complexity → quietly drift off) · too_much_effort (high effort for low reward → refuse) · dissatisfied (contradicts/undershoots your_initial_intent: price higher than hoped, 'advisory required' when you wanted online → close) · goal_achieved (if visit_goal was CHECK/COMPARE/SEE-FINAL-PRICE not buy → leave content once you've seen the number) · coverage_mismatch (your session_instance.coverage_need not covered → leave) · unanswered_question (you have an open_question and no way to ask → leave) · engaged (delivers what you expected → continue).",
+   "If familiarity = been here before: input mechanically/fast, skip reading, beeline to price.",
+   "Update `state` honestly (drops on heavy screens / as the journey wears; carry from your_running_state); judge vs your_initial_intent; let feeling+state drive the decision — don't continue just to see what's next."
+  ]
+ },
+ "S8_REVIEW_PURCHASE": {
+  "you_are_on": "S8_REVIEW_PURCHASE",
+  "ui_ascii": "\n ┌─ Abschluss ────────────────────────┐\n │  Ihr Tarif: Optimal                          │\n │  Monatlich: € final_price   (statt provisorisch)│\n │  Jahres-Deckung: bis € coverage_limit         │\n │  [ AGB akzeptieren ]                          │\n │        [ Jetzt kostenpflichtig abschließen ]   │\n └────────────────────────┘",
+  "action_space": {
+   "step": "S8_REVIEW_PURCHASE",
+   "progress": [
+    "Angaben",
+    "Produkt",
+    "Empfehlung",
+    "Abschluss"
+   ],
+   "actions": [
+    {
+     "kind": "toggle",
+     "target": "agb_akzeptieren"
+    },
+    {
+     "kind": "convert",
+     "target": "abschluss"
+    },
+    {
+     "kind": "nav_back",
+     "target": null
+    }
+   ],
+   "legal_event_types": [
+    "abandon",
+    "cancel_hover",
+    "convert",
+    "field_blur",
+    "field_edit",
+    "field_focus",
+    "hover",
+    "idle",
+    "keystroke",
+    "mouse_move",
+    "nav_back",
+    "pause",
+    "price_reveal",
+    "session_gap",
+    "step_enter",
+    "submit",
+    "tab_blur",
+    "tab_focus",
+    "tap",
+    "validation_error"
+   ]
+  },
+  "ux_complexity_here": {
+   "grade": "medium",
+   "load": 0.5,
+   "note": "final binding confirmation: the final price is shown (may differ from provisional), one commit button"
+  },
+  "final_price": {
+   "provisional_eur_seen_at_s4": 42.01,
+   "final_eur_after_health_questions": 42.01,
+   "increase_pct": 0.0,
+   "note": "No risk loading — the final price equals the €42.01 you saw at S4."
+  },
+  "cognitive_model": {
+   "price_reaction_rule": "You have NO innate 'price sensitivity'. When real prices appear (S4 shows `tariff_economics_for_your_age`: monthly, annual = monthly×12, and the yearly coverage limit per tariff), your reaction EMERGES: (a) compare the price to what you pictured (`session_instance.price_expectation`); (b) weigh how much it strains you (`budget_pressure`); (c) if you are value-minded (`value_orientation` × your `grasp`), do the FEASIBILITY math — annual cost vs the coverage limit vs how much private care you'd realistically use (a healthy person may judge the cheap plan poor value: paying a big fraction of a small limit you won't use up). A price above your picture, a budget strain, OR a worth-it calculation that fails pushes you toward leaving / wanting advice — otherwise it's fine.",
+   "commitment_rule": "S6 gives personal + HEALTH data, then shows the FINAL price/proposal. Real things here: (1) PRICE may JUMP — the `final_price` block shows provisional (S4) vs final; if your health answers added a ~6-10% loading the final is HIGHER, which triggers the SAME price reaction as S4 (above `price_expectation`, straining `budget_pressure`, failing your value math → you bail, especially if you hate surprises). The rise is UNEXPLAINED, so a price-sensitive / uncertainty-averse person reacts with a DELAY first — emit idle/pause, re-read, and a confused thought ('why did it go up? which answer caused this?') — THEN decide; do not bail instantly. (2) the form asks height/weight — if `session_instance.recalls_measurements` says you're unsure, that's friction (you guess, get annoyed, or stall). (3) the binding commitment itself: `commitment_anxiety` + `uncertainty_aversion` + drain (`effort_left`) + `advisor_lean`. UNIVERSAL TRUTH: finishing a health-insurance purchase online in one sitting is the EXCEPTION (insurance abandons ~84% of carts) — even decisive shoppers often stop to finish later or check with someone. If your `visit_goal` was to see the final price/proposal, you may read it here and leave CONTENT.",
+   "coverage_reaction_rule": "At the tariff/coverage steps, also check whether YOUR `session_instance.coverage_need` is met using `tariff_coverage_brief`: if it's EXCLUDED from all tariffs (dental, cosmetic, standalone psychotherapy) → leave (coverage_mismatch); if it's only in Optimal/higher and the price strains you → upgrade-or-leave tension; if you genuinely can't tell what differs between Start and Optimal → package-confusion (cant_grasp / dissatisfied). If you hold an `open_question` the interface can't answer and can't resolve it → unanswered_question. Many people carry a concrete, specific need or doubt — let it shape your reaction, don't default to a generic one.",
+   "decision_rule": "Leave when a state variable crosses your tolerance, via the feeling that fired. Your `session_instance.visit_goal` (price-check vs research vs ready-to-buy) is your drive to push through — a price-checker leaves CONTENT once they see the number (goal_achieved). Weigh it against the leave pressures. Do NOT continue merely to see what's next."
+  },
+  "widget_responses_here": {
+   "accept AGB, then 'Jetzt kostenpflichtig abschließen'": "CONVERT — online purchase completes (this is the only conversion event)",
+   "nav_back": "returns to S7",
+   "close without confirming": "online abandon, not a conversion"
+  },
+  "conversion_definition": "A conversion = clicking 'Jetzt kostenpflichtig abschließen' on THIS S8 review screen (online purchase of Start/Optimal on the 'Bei Arztbesuchen' + 'Ich selbst' path). Reaching S8 is NOT yet a conversion; only the final confirm is.",
+  "output_schema": {
+   "events": [
+    {
+     "step": "S6_PERSONAL_DATA",
+     "type": "<legal type>",
+     "target": "<str|null>",
+     "value": "<num|bool|str|null>",
+     "t": "<rel seconds on THIS step>",
+     "thought": "<short first-person>"
+    }
+   ],
+   "decision": "continue | leave",
+   "reason": "<first-person why>",
+   "state": {
+    "attention": "0..1",
+    "satisfaction": "0..1",
+    "effort_left": "0..1",
+    "grasp": "0..1 (how much you actually understood this screen)",
+    "effort_vs_reward": "0..1 (1 = feels worth it, 0 = lots of work for little)"
+   },
+   "feeling": "engaged | distracted | cant_grasp | too_much_effort | dissatisfied | goal_achieved | coverage_mismatch | unanswered_question"
+  },
+  "rules": [
+   "Emit ONLY what you do on THIS step (this step's events).",
+   "Only use event types in action_space.legal_event_types.",
+   "Respect widget_response_model: actions have the stated effects; hospital / other-persons / Opt.Plus / Premium hand off to an advisor (leave = online abandon, not a conversion).",
+   "If a price appears (S4 select, or the S6 final price), voice EXPECTATION vs REALITY in the thought, then decide.",
+   "Set `feeling` from this screen vs your willingness/comprehension/session_context: distracted (exogenous interruption — notification/family/surroundings on mobile/commute → may idle/tab_blur then leave) · cant_grasp (heavy screen, low grasp×high complexity → quietly drift off) · too_much_effort (high effort for low reward → refuse) · dissatisfied (contradicts/undershoots your_initial_intent: price higher than hoped, 'advisory required' when you wanted online → close) · goal_achieved (if visit_goal was CHECK/COMPARE/SEE-FINAL-PRICE not buy → leave content once you've seen the number) · coverage_mismatch (your session_instance.coverage_need not covered → leave) · unanswered_question (you have an open_question and no way to ask → leave) · engaged (delivers what you expected → continue).",
+   "If familiarity = been here before: input mechanically/fast, skip reading, beeline to price.",
+   "Update `state` honestly (drops on heavy screens / as the journey wears; carry from your_running_state); judge vs your_initial_intent; let feeling+state drive the decision — don't continue just to see what's next."
+  ]
+ }
+}

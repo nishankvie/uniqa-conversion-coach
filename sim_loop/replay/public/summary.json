@@ -1,0 +1,41 @@
+{
+  "args": {
+    "sessions": 50,
+    "arms": "off,on",
+    "proportions": "real",
+    "coach_budget": 3,
+    "model": null,
+    "concurrency": 12,
+    "seed": 0,
+    "out": "sim_loop/out"
+  },
+  "persona_mix": {
+    "judith": 4,
+    "franz": 23,
+    "peter": 23
+  },
+  "arms": {
+    "off": {
+      "file": "sim_loop/out/sessions_coach_off.jsonl",
+      "n": 50,
+      "convert": 4,
+      "convert_rate": 0.08,
+      "success": 8,
+      "success_rate": 0.16,
+      "advisor": 5,
+      "abandon": 41,
+      "coach_interventions": 0
+    },
+    "on": {
+      "file": "sim_loop/out/sessions_coach_on.jsonl",
+      "n": 50,
+      "convert": 8,
+      "convert_rate": 0.16,
+      "success": 12,
+      "success_rate": 0.24,
+      "advisor": 4,
+      "abandon": 38,
+      "coach_interventions": 104
+    }
+  }
+}

@@ -50,3 +50,6 @@ models/
 slurm/data/
 slurm/data_tagged/
 slurm/out/
+
+# sim_loop raw session output (regenerable; the demo copy lives in sim_loop/replay/public/)
+sim_loop/out/
