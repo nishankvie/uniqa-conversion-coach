@@ -79,7 +79,11 @@ class EventType(Enum):
     WIDGET_DISLIKE = "widget_dislike"    # thumbs-down (change tactic)
     SUBMIT         = "submit"
     ABANDON        = "abandon"           # terminal
-    CONVERT        = "convert"           # terminal (online purchase)
+    CONVERT        = "convert"           # terminal — ONLINE PURCHASE (the default conversion)
+    # persona-specific terminal CONVERSIONS (a win even without an online purchase):
+    ADVISOR_BOOKED = "advisor_booked"    # smooth advisor handoff booked (conversion for Judith)
+    CALLBACK_BOOKED = "callback_booked"  # phone callback scheduled (conversion for Peter)
+    CONTACT_CLICKED = "contact_clicked"  # phone/WhatsApp/service contact engaged (conversion for Peter)
 
 
 @dataclass

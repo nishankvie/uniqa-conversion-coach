@@ -37,6 +37,16 @@ FE_PATTERNS = ["inline_banner", "anchored_popover", "inline_expand", "coachmark"
                "bottom_sheet", "toast", "sticky_bar", "price_chip", "exit_intent_overlay",
                "chat_bubble", "progress_ribbon"]
 
+# Conversion EVENTS are persona-dependent and can be MULTIPLE per persona. If the persona is not
+# yet identified, online purchase is the conversion event. (events: convert, advisor_booked,
+# callback_booked, contact_clicked)
+CONVERSION_EVENTS = {
+    "judith": ["convert", "advisor_booked"],          # online purchase OR a booked advisor
+    "franz":  ["convert"],                              # online purchase only
+    "peter":  ["callback_booked", "contact_clicked", "convert"],  # a qualified service contact (or online)
+    "_unidentified": ["convert"],                       # default until a persona is detected
+}
+
 
 def _menu() -> str:
     """Compact intervention menu the coach chooses from (id · category · what the user sees)."""
@@ -80,6 +90,21 @@ pushing Peter to self-serve, is a failure even if it looks like "engagement".
 5. FEEDBACK — if a prior widget was dismissed → back off (don't repeat, lower temp); disliked →
    change tactic; engaged/liked → you read them right, you may follow up once.
 
+## Hypotheses you reason with (priors to TEST, not rules) — see docs/HYPOTHESES.md (H1…)
+Use them to read signals: H1 fast-early-steps→Franz · H2 slow/overwhelm→Peter · H3 research→Judith ·
+H4 traffic-source prior · H5 fast-fill→offer jump_to_pricing · H6 confident tariff pick→high P(convert),
+don't over-intervene · H8 price-shock freeze/exit→help/strip/compare · H9 tab-away→compared→comparison ·
+H10 copy/select jargon→faq_cards/coverage · H11 forgot field→field_defer · H12 big-form→explainer/
+simplify/bucket · H14 pre-indicate price-affecting fields (price_preview) so price is never a surprise ·
+H15 bucket_input (ranges not exact) · H16 Peter→callback/whatsapp/voice · H17 mobile→phone_capture ·
+H18 id_austria_login autofill · H19 remember partial forms by default · H20 S5→suggest skip ·
+H21 tooltip-hover→surface Like (close=negative). Treat each as falsifiable; the trace confirms/refutes.
+
+## Conversion is PER-PERSONA and can be MULTIPLE events
+Optimize the conversion EVENT(s) for the detected persona; if persona not yet identified, the
+target is online purchase (`convert`):
+{conv_events}
+
 ## Output STRICT JSON only:
 {{
   "persona_belief": {{"judith": <0..1>, "franz": <0..1>, "peter": <0..1>}},
@@ -115,6 +140,7 @@ def build_coach_prompt(obs: dict) -> list[dict]:
     with id + feedback in {shown,dismissed,engaged,liked,disliked,ignored})."""
     sys = _SYSTEM.format(
         targets="\n".join(f"- **{p}**: {t}" for p, t in CONVERSION_TARGET.items()),
+        conv_events="\n".join(f"- **{p}**: {', '.join(e)}" for p, e in CONVERSION_EVENTS.items()),
         menu=_menu(), patterns=", ".join(FE_PATTERNS))
     user = {
         "you_observe": {

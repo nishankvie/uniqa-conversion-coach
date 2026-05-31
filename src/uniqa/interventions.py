@@ -82,6 +82,15 @@ CATALOG: dict[str, Intervention] = {i.id: i for i in [
     Intervention("coverage_checker", Category.INFORM, "Is YOUR treatment covered?",
         "A tiny lookup answering the user's open question — “is dental / physio / my doctor covered?” — the question the funnel gives them no way to ask.",
         (_S4, _S1), ()),
+    Intervention("faq_cards", Category.INFORM, "Questions you might have",
+        "Contextual FAQ cards generated near the topic the user is focused on (e.g. while reading "
+        "coverage terms): “What's added in the next tariff?”, “How do I get more dental allocation?” "
+        "— answers the unspoken question without making them leave to search.",
+        (_S4, _S1, Step.ADDON_SELECT), ()),
+    Intervention("price_preview", Category.PRICE, "How this affects your price (before you fill)",
+        "BEFORE the user fills a price-affecting field (health/weight), preview its impact so the "
+        "final price is never a surprise (e.g. shows the small loading a health answer may add).",
+        (_S6,), ()),
     Intervention("feature_highlight", Category.INFORM, "Recently improved",
         "Highlights a concrete recent improvement relevant to them (e.g. laser-eye-surgery limit doubled in 2025).",
         (_S4,), ()),
@@ -124,6 +133,22 @@ CATALOG: dict[str, Intervention] = {i.id: i for i in [
         "the details are needed, that it's only ~N quick fields / ~1 minute, and that it's required "
         "to compute the binding price — defusing the big-form scare so they begin instead of bailing.",
         (_S3, _S6), ()),
+    Intervention("jump_to_pricing", Category.CONVERT_AID, "Skip ahead to your price",
+        "For a fast/decisive filler: offer to jump straight to the price now (defer optional detail) "
+        "— reward momentum; a confident tariff pick from here is highly likely to convert.",
+        (_S3, Step.INSURED), ("franz",)),
+    Intervention("id_austria_login", Category.ENGAGE, "Auto-fill with ID Austria",
+        "Offer to log in with ID Austria (national eID) to auto-fill identity / SV-number details — "
+        "removes the biggest form friction for users willing to authenticate.",
+        (_S3, _S6), ()),
+    Intervention("voice_questions", Category.HANDOFF, "Ask by voice / leave a number",
+        "Low-effort human option: leave a phone number for a callback, or record/type your questions "
+        "and get them answered — the natural ask for service-preferring or mobile users.",
+        (_S1, _S3, _S4), ("peter",)),
+    Intervention("phone_capture", Category.CAPTURE, "Get your quote by text/call (mobile)",
+        "On mobile, capture the phone number to send the quote + enable a callback / retarget — "
+        "lower-friction than finishing a long form on a small screen; salvages the lead.",
+        (_S4, _S6), (), spends_budget=False),
     Intervention("preselect_optimal", Category.CONVERT_AID, "Sensible default selected",
         "Pre-selects the online-completable Optimal tariff (still changeable) so the user can proceed without deciding from scratch.",
         (_S4,), ("franz",), spends_budget=False),
