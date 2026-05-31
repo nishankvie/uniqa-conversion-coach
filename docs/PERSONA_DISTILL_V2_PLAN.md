@@ -71,10 +71,22 @@ For each (persona, step) draw M contexts; query the teacher **K times** each (te
   `--time 1:00:00`, robust incremental writes.
 - **DoD:** report printed; compare to frontier ε≈0.10 and to v1's ε≈0.48.
 
-## Task 6 — Stage-2 calibration
-- If marginals are close-but-off, fit a per-(persona,step) **temperature/threshold on the leave
-  decision** to snap S4/S6 onto anchors; re-eval.
-- **DoD:** post-calibration ε ≤ 0.12; each persona converts >0; per-persona conv within tol.
+## Task 6 — Fix outliers at SOURCE (dials), calibration last-resort
+Measure the **coherent-rollout marginal** (T5), NOT the per-step sampled-state rate, then:
+1. **Primary — tune dials/disposition** (`research/tune.py`). Structural outliers (e.g. judith
+   S4 saturated-high across moods ⇒ disposition-driven, not state) are fixed by shifting that
+   persona's dials / `_DISP_W` weights (judith → more "proceed online / prepared for premium")
+   so the teacher's behaviour matches anchors → regenerate the affected cells → retrain. This
+   fixes the model's *understanding*, and reshapes the training data correctly.
+2. **Last-resort — Stage-2 calibration** (per-(persona,step) temperature/threshold on the leave
+   decision) ONLY for the small residual after dial-tuning — because dial-tuning costs a full
+   regen+retrain loop while calibration is free. Don't lead with it; it rescales a logit, it
+   doesn't fix behaviour.
+- **DoD:** post-fix rollout ε ≤ 0.12; each persona converts >0; per-persona conv within tol;
+  outliers addressed via dials where structural.
+
+> Note: single whole-session prompting is rejected (compare_gen: S4 churn ≡ 0, ε 0.31). It can
+> match *overall conversion* (0.11) but not the per-step funnel shape — hence the per-step gate.
 
 ## Task 7 — Base comparison + pick
 - Qwen2.5-1.5B vs MiniCPM5-1B on {ε, per-persona churn, sessions/sec, calibration effort}.
