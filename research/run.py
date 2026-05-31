@@ -111,7 +111,8 @@ def validate(by_persona: dict) -> dict:
     cells = []
     report = {"personas": {}, "overall": {}}
     obs_overall = 0.0
-    for persona in PERSONAS:
+    present = [p for p in PERSONAS if p in by_persona]   # robust to partial / failed personas
+    for persona in present:
         st = persona_stats(by_persona[persona])
         ref = ABANDON_PROBS[persona]
         cell_rows = {}
@@ -134,18 +135,19 @@ def validate(by_persona: dict) -> dict:
         }
         obs_overall += PERSONA_WEIGHTS[persona] * st["conv_rate"]
     eps = round(sum(cells) / len(cells), 4) if cells else None
-    tgt_overall = round(sum(PERSONA_WEIGHTS[p] * implied_conv_target(p) for p in PERSONAS), 4)
+    tgt_overall = round(sum(PERSONA_WEIGHTS[p] * implied_conv_target(p) for p in present), 4)
     report["overall"] = {
         "epsilon_mean_abs_bounce": eps,
         "obs_conv_weighted": round(obs_overall, 4),
         "target_conv_weighted": tgt_overall,
-        "all_personas_convert": all(report["personas"][p]["converts_at_least_once"] for p in PERSONAS),
+        "personas_present": present,
+        "all_personas_convert": all(report["personas"][p]["converts_at_least_once"] for p in present),
         "eps_pass": (eps is not None and eps <= EPS_GATE),
-        "conv_pass": all(report["personas"][p]["conv_abs_diff"] <= CONV_TOL for p in PERSONAS),
+        "conv_pass": all(report["personas"][p]["conv_abs_diff"] <= CONV_TOL for p in present),
     }
     report["overall"]["PASS"] = bool(
         report["overall"]["eps_pass"] and report["overall"]["conv_pass"]
-        and report["overall"]["all_personas_convert"])
+        and report["overall"]["all_personas_convert"] and len(present) == len(PERSONAS))
     return report
 
 

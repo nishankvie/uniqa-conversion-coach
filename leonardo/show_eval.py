@@ -21,7 +21,8 @@ for name, f in FILES:
     o = r.get("overall", {})
     tag = "PARTIAL" if r.get("_partial") else "FINAL"
     print(f"=== {name} [{tag}]  ε={round(o.get('epsilon_mean_abs_bounce',0),4)} "
-          f"(gate 0.12 → {o.get('eps_pass')})  overall_conv={round(o.get('conversion',0),3)}")
+          f"(gate 0.12 → {o.get('eps_pass')})  overall_conv={round(o.get('obs_conv_weighted',0),3)} "
+          f"(target {o.get('target_conv_weighted')})")
     P = r.get("personas", {})
     for p in ("judith", "franz", "peter"):
         d = P.get(p)
@@ -33,7 +34,7 @@ for name, f in FILES:
         s4s = f"{s4:.2f}/{tgt(p,Step.TARIFF_SELECT):.2f}" if s4 is not None else "—"
         s6s = f"{s6:.2f}/{tgt(p,Step.PERSONAL_DATA):.2f}" if s6 is not None else "—"
         s5s = f"{s5:.2f}/{tgt(p,Step.ADDON_SELECT):.2f}" if s5 is not None else "excluded(out-of-scope)"
-        print(f"    {p:7} conv={d.get('conversion',0):.2f}  S4 {s4s}  S5 {s5s}  S6 {s6s}")
+        print(f"    {p:7} conv={d.get('conv_rate',0):.2f}  S4 {s4s}  S5 {s5s}  S6 {s6s}")
     t = r.get("_timing", {})
     if t:
         print("    timing:", {k: v.get("sec") for k, v in t.items()})
