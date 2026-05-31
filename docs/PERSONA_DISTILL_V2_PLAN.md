@@ -57,12 +57,23 @@ For each (persona, step) draw M contexts; query the teacher **K times** each (te
 - **DoD:** dataset built at the population mix; per-(persona,step) leave-rate distribution looks
   sane; balanced.
 
-## Task 4 — Prepare + train LoRA (Leonardo)
-- `prepare_sft` on v2 (per-persona chat-format), with **decision-token balancing / upweighting**
-  of `leave` (BalanceSFT-style) if rows aren't already balanced.
-- Train per persona, both bases (Qwen2.5-1.5B, MiniCPM5-1B) — reuse `slurm_finetune.sh`
-  (OUTROOT split). Fewer epochs / early-stop on churn-ε, not loss.
-- **DoD:** 3 adapters/base saved (verify `adapter_config.json` present — don't `scancel` mid-save).
+## Task 4 — Train ONE tagged adapter (prompt-internalized)
+**Single adapter for all 3 personas**, conditioned on a persona TAG — not 3 adapters, not
+the full `persona.md` in the prompt. Enables one-model serving + **cross-persona batching**
+(required for population gen, T7b).
+- **Student-view** (`research/student_view.py`): teacher labelled with the FULL prompt; student
+  trains on `tagged minimal input -> teacher output`, internalizing the static scaffold
+  (persona prose, dials, cognitive_model, rules, schema). Measured: **full ~4350 → student ~588
+  tok (7.4×, level 1)**; level 2 ~243 (17.9×). One combined `data_tagged/{train,val}.jsonl`.
+- Train one adapter on the combined set, both bases (Qwen2.5-1.5B, MiniCPM5-1B). Balance/upweight
+  `leave` if needed. Fewer epochs / early-stop on churn-ε.
+- **Dials:** v2.1 internalizes dials WITH the tag (fixed per persona); post-hoc dial-tunability
+  (dials in prompt) needs dial-AUGMENTED data → deferred v2.2. Outlier fix meanwhile = regenerate
+  that persona's cells + retrain (T6).
+- **Separability gate:** tag-dropout / swap test — confirm the tag drives behavior (no blending,
+  tag not ignored). (old assumption A5.)
+- **DoD:** 1 adapter/base saved (`adapter_config.json` present — don't `scancel` mid-save);
+  tag-dropout shows distinct per-persona behavior.
 
 ## Task 5 — Coherent rollout eval (batched)
 - `BatchedLocalTeacher.generate_cohort` (Mode A) → `validate` → per-persona **S4/S6 cond churn +
@@ -91,6 +102,22 @@ Measure the **coherent-rollout marginal** (T5), NOT the per-step sampled-state r
 ## Task 7 — Base comparison + pick
 - Qwen2.5-1.5B vs MiniCPM5-1B on {ε, per-persona churn, sessions/sec, calibration effort}.
 - **DoD:** one chosen base + a short results table for the report.
+
+## Task 7b — CONTROLLABLE POPULATION generation (headline)
+The payoff of the single tagged adapter: generate a synthetic **population** at ANY persona mix
+and check the aggregate funnel matches reality.
+- `BatchedLocalTeacher.generate_population(weights, N, seed)`: assign each of N sessions a persona
+  by `weights` ({judith:.3, franz:.5, peter:.2} — or any mix), roll out the cohort in LOCKSTEP
+  **batched across personas** (one adapter handles all tags in a single `generate`/step). Returns
+  the population ActivityLogs.
+- Validate the WEIGHTED aggregate vs `funnel.py` anchors: overall conversion ≈ 0.083, S4/S6
+  conditional churn within tol, ε ≤ 0.12 — AND that it tracks the GIVEN mix (90% franz → conv up;
+  100% peter → down).
+- **Success criterion (the hope):** each persona's per-step policy being faithful ⇒ mixing at the
+  specified proportions reproduces the real funnel population statistically. A knob: set the mix
+  → get a realistic, anchor-matching synthetic funnel. This is what the coach loop + demo run on.
+- **DoD:** `generate_population(30/50/20, N=300)` → weighted ε ≤ 0.12 + conversion within tol;
+  off-mix populations show the expected directional shift; fast (one batched model).
 
 ## Task 8 — Wire into the sim loop
 - Swap chosen `LocalTeacher` into the sim/autoresearch loop (Mode A) and the coach loop

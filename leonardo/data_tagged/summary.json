@@ -1,0 +1,16 @@
+{
+  "n_train": 2160,
+  "n_val": 240,
+  "level": 1,
+  "persona_mix": {
+    "franz": 800,
+    "peter": 800,
+    "judith": 800
+  },
+  "decision_mix": {
+    "leave": 742,
+    "continue": 1658
+  },
+  "prompt_tokens_full": 4350,
+  "prompt_tokens_student": 588
+}
