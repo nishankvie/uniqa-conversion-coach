@@ -1,0 +1,72 @@
+{
+  "dataset": "datasets/persona_v2/sft_steps.jsonl",
+  "n_rows": 2398,
+  "chance": 0.3333333333333333,
+  "state_model": {
+    "cv_accuracy": 0.7039199332777314,
+    "cv_mean_conf": 0.5998790658882402,
+    "per_step_acc": {
+      "S1_COVERAGE_TYPE": 0.6875,
+      "S2_INSURED_PERSONS": 0.69375,
+      "S3_PERSONAL_INFO": 0.7208333333333333,
+      "S4_TARIFF_SELECT": 0.6791666666666667,
+      "S6_PERSONAL_DATA": 0.7384937238493724
+    },
+    "n_features": 20,
+    "feature_names": [
+      "out_attention",
+      "out_satisfaction",
+      "out_effort_left",
+      "out_grasp",
+      "out_effort_vs_reward",
+      "d_attention",
+      "d_satisfaction",
+      "d_effort_left",
+      "d_grasp",
+      "d_effort_vs_reward",
+      "decision_leave",
+      "n_events",
+      "feel_engaged",
+      "feel_too_much_effort",
+      "feel_dissatisfied",
+      "feel_unanswered_question",
+      "feel_coverage_mismatch",
+      "feel_goal_achieved",
+      "feel_cant_grasp",
+      "feel_distracted"
+    ]
+  },
+  "actions_model": {
+    "cv_accuracy": 0.5287739783152627,
+    "cv_mean_conf": 0.6199540260665535,
+    "per_step_acc": {
+      "S1_COVERAGE_TYPE": 0.46041666666666664,
+      "S2_INSURED_PERSONS": 0.4666666666666667,
+      "S3_PERSONAL_INFO": 0.5645833333333333,
+      "S4_TARIFF_SELECT": 0.6270833333333333,
+      "S6_PERSONAL_DATA": 0.5251046025104602
+    },
+    "n_features": 19,
+    "feature_names": [
+      "select",
+      "edit",
+      "field_focus",
+      "field_blur",
+      "hover",
+      "dropdown",
+      "nav_next",
+      "nav_back",
+      "submit",
+      "idle",
+      "tab",
+      "tariff_click",
+      "abandon",
+      "other",
+      "n_events",
+      "dwell",
+      "n_targets",
+      "inter_event_dt",
+      "decision_leave"
+    ]
+  }
+}

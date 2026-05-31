@@ -89,3 +89,28 @@ abandons at the price wall like a real user.
 **Conclusion:** per-step (stepwise) generation is **necessary**, not just convenient — it's the
 only way to reproduce the documented mid-funnel (S4) drop-off. This justifies the v2 per-step
 distillation architecture end-to-end.
+
+---
+
+# Provenance check (course-correction): we were calibrating to OUR numbers, not UNIQA's
+
+**UNIQA ground truth** (`uniqa-funnel-doc_en.md`, "source: UNIQA funnel analysis"): AGGREGATE
+drop-off **S4=66%, S5=24%, S6=78%**, mix **30/50/20**, conversion ~5.6%; plus qualitative
+segment descriptions. **What we invented:** the per-persona `ABANDON_PROBS` splits (funnel.py
+comment proves it: `0.30×0.70+0.50×0.55+0.20×0.80≈66%`) and ALL the dials/disposition weights.
+
+Consequence: the "judith S4 0.94 outlier" was vs our INVENTED 0.70, not UNIQA. Tuning judith's
+dials to chase 0.70 actually moved the REAL aggregate **away** (66.1%→68.4%). Reverted.
+
+**Survival-weighted population aggregate of the original v2 dataset vs UNIQA:**
+
+| step | v2 aggregate | UNIQA | Δ |
+|---|---|---|---|
+| S4 | 0.651 | 0.66 | **0.009** ✅ |
+| S6 | 0.692 | 0.78 | 0.088 (real gap — S6 under-churns ~9pp) |
+| conversion (in-scope) | 0.102 | ~0.075 | follows S6 |
+
+**Corrected eval policy:** PRIMARY gate = population aggregate vs UNIQA (66/78 + conversion);
+per-persona ε is SECONDARY/diagnostic (our decomposition — judith>franz at S4 is consistent with
+UNIQA's advisor-affine segment, which is the qualitative truth). The legitimate calibration
+target is **S6 (+9pp)**, NOT judith S4.

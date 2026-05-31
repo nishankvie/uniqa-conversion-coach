@@ -178,13 +178,15 @@ def main(argv=None):
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--out", default="datasets/persona_v2")
     ap.add_argument("--full", action="store_true", help="use the full (untrimmed) prompt for A/B")
+    ap.add_argument("--personas", default="", help="csv subset, e.g. judith (default all)")
     args = ap.parse_args(argv)
     global _LEAN; _LEAN = not args.full
     print("prompt:", "FULL" if args.full else "LEAN")
 
+    personas = [p.strip() for p in args.personas.split(",") if p.strip()] or PERSONAS
     steps = PROBE_STEPS if args.mode == "probe" else FLOW
     t0 = time.time()
-    rows = run(PERSONAS, steps, args.M, args.K, args.workers, args.seed)
+    rows = run(personas, steps, args.M, args.K, args.workers, args.seed)
     _report(rows)
     print(f"\n{len(rows)} contexts in {time.time()-t0:.1f}s")
 

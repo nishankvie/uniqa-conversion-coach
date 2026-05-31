@@ -36,17 +36,19 @@ def main():
     print(f"rows={len(rows)}  decision balance: {dict(dec)}  "
           f"(leave share {dec['leave']/(dec['leave']+dec['continue']):.3f})\n")
 
-    print("per-(persona,step) leave-rate  [obs / target]  (n, 95% CI):")
+    print("per-(persona,step) leave-rate  [obs / OUR per-persona split]  (n, 95% CI):")
+    print("  (per-persona targets are OUR decomposition, NOT UNIQA ground truth — see aggregate below)")
     eps_cells = []
     implied = {}
+    lr = {}
     for persona in ("judith", "franz", "peter"):
-        surv = 1.0; conv = 1.0
+        conv = 1.0; lr[persona] = {}
         print(f"\n {persona}:")
         for st in ORDER:
             c = cnt[(persona, st.value)]
             if c["n"] == 0:
                 print(f"    {st.value:18} (no data)"); continue
-            obs = c["leave"]/c["n"]
+            obs = c["leave"]/c["n"]; lr[persona][st] = obs
             tgt = ABANDON_PROBS[persona].get(st)
             ci = wilson(c["leave"], c["n"])
             mark = ""
@@ -57,16 +59,27 @@ def main():
             print(f"    {st.value:18} {obs:.3f} / {tstr}   (n={c['n']}, CI {ci}){mark}")
             conv *= (1 - obs)
         implied[persona] = conv
-        print(f"    → implied online conversion (∏ survive) = {conv:.3f}  "
-              f"(anchor-implied {_anchor_conv(persona):.3f})")
+
+    # ===== PRIMARY: survival-weighted POPULATION aggregate vs UNIQA ground truth =====
+    UNIQA = {Step.TARIFF_SELECT: 0.66, Step.PERSONAL_DATA: 0.78}
+    share = dict(PERSONA_WEIGHTS)
+    print("\n===== POPULATION AGGREGATE (survival-weighted) vs UNIQA ground truth =====")
+    for st in ORDER:
+        reach = sum(share.values())
+        leavers = sum(share[p] * lr[p].get(st, 0.0) for p in share)
+        agg = leavers / reach if reach else 0.0
+        share = {p: share[p] * (1 - lr[p].get(st, 0.0)) for p in share}
+        u = UNIQA.get(st)
+        ustr = f"UNIQA {u:.2f}  Δ={abs(agg-u):.3f}" if u else "(out-of-scope / no anchor)"
+        print(f"  {st.value:18} aggregate churn {agg:.3f}   {ustr}")
+    print(f"  → in-scope online conversion = {sum(share.values()):.3f}  "
+          f"(UNIQA ~0.056 INCLUDES the 24%% S5 drop we skip → in-scope ~0.075)")
 
     eps = sum(eps_cells)/len(eps_cells) if eps_cells else None
-    overall = sum(PERSONA_WEIGHTS[p]*implied[p] for p in implied)
-    anchor_overall = sum(PERSONA_WEIGHTS[p]*_anchor_conv(p) for p in implied)
-    print(f"\nε (mean |obs−target| over S3/S4/S6 cells) = {eps:.4f}  (gate 0.12)")
-    print(f"implied weighted conversion = {overall:.3f}   (anchor-implied {anchor_overall:.3f})")
-    print("\nNOTE: these are per-step rates over the SAMPLED state mix (mood 0.5/0.3/0.2), NOT a "
-          "coherent rollout. The rollout marginal + Stage-2 calibration are evaluated separately.")
+    print(f"\nSECONDARY (diagnostic) ε vs OUR per-persona splits = {eps:.4f}  (gate 0.12)")
+    print("PRIMARY target = the UNIQA aggregate above; per-persona splits are our decomposition "
+          "(judith>franz at S4 is consistent with UNIQA's advisor-affine segment). Rates are over "
+          "the SAMPLED state mix, not a coherent rollout.")
 
 
 def _anchor_conv(persona):
