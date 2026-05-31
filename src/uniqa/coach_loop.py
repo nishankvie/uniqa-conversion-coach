@@ -60,7 +60,9 @@ class ReactiveCoach:
         candidates: list[str] = []
         # BIG-FORM pre-emptive nudge: the moment a long form (S3/S6) is hit with high hesitation,
         # explain WHY the form is needed BEFORE the user bails (don't let the form scare them off).
-        if step in (Step.PERSONAL_INFO, Step.PERSONAL_DATA) and (
+        # big form: Peter SKIPS it (contact_handoff, from his persona priority below); everyone
+        # else gets a pre-emptive explainer to help them fill it.
+        if step in (Step.PERSONAL_INFO, Step.PERSONAL_DATA) and persona != "peter" and (
                 hesitation >= 0.5 or feeling == "too_much_effort"):
             candidates.append("form_explainer")
         # add-on step: defuse the optional-upsell cost bump
