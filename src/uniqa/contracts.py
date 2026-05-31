@@ -73,8 +73,10 @@ class EventType(Enum):
     SCROLL_UP      = "scroll_up"         # scrolled back up to re-read → confusion / didn't absorb
     FIELD_CLEAR    = "field_clear"       # cleared a field after typing → doubt / abandoned input
     WIDGET_SHOWN   = "widget_shown"      # coach-originated, echoed back
-    WIDGET_CTA     = "widget_cta"        # user clicked the widget CTA
-    WIDGET_DISMISS = "widget_dismiss"
+    WIDGET_CTA     = "widget_cta"        # user clicked the widget CTA (engaged)
+    WIDGET_DISMISS = "widget_dismiss"    # user closed it (back off, don't repeat)
+    WIDGET_LIKE    = "widget_like"       # thumbs-up on the widget (explicit positive feedback)
+    WIDGET_DISLIKE = "widget_dislike"    # thumbs-down (change tactic)
     SUBMIT         = "submit"
     ABANDON        = "abandon"           # terminal
     CONVERT        = "convert"           # terminal (online purchase)

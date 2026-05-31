@@ -103,9 +103,19 @@ CATALOG: dict[str, Intervention] = {i.id: i for i in [
         "and you can add any module later anytime — defuses the upsell+cost-bump scare.",
         (Step.ADDON_SELECT,), (), spends_budget=False),
     Intervention("form_simplify", Category.ENGAGE, "Simplify the form",
-        "On detected overwhelm, collapse the form to only the few REQUIRED fields (progressive "
-        "disclosure) so it feels doable instead of endless.",
+        "On detected overwhelm, collapse the form to only the few REQUIRED fields and SPLIT it into "
+        "small steps (progressive disclosure) so it feels doable instead of endless.",
         (_S3, _S6), ("peter",)),
+    Intervention("field_defer", Category.ENGAGE, "Skip now, add later",
+        "Lets the user defer a stalling field (e.g. forgot SV number, or weight/health detail): "
+        "continue now and fill it later — BUT transparently note if it affects the binding price "
+        "(so it's an honest defer, not a hidden one).",
+        (_S3, _S6), ()),
+    Intervention("bucket_input", Category.ENGAGE, "Pick a range, not an exact number",
+        "Replaces an exact field (e.g. height/weight) with a few CATEGORIES and shows the price "
+        "impact per bucket (e.g. '<170cm' vs '≥170cm') — the user picks a range instead of typing a "
+        "precise value, lowering effort while staying price-accurate.",
+        (_S6,), ()),
     Intervention("form_helper", Category.ENGAGE, "Inline form help",
         "A contextual hint that de-frictions the current field (e.g. “your insurance number is top-right on your e-card”).",
         (_S3, _S6), ()),
