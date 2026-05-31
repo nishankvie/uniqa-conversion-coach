@@ -10,16 +10,17 @@
 #SBATCH --gpus-per-task=1
 #SBATCH --mem=120GB
 #SBATCH --cpus-per-task=8
-#SBATCH --time=0:40:00
+#SBATCH --time=1:00:00
 #SBATCH --output=slurm-eval1-%j.out
 
 set -euo pipefail
 cd "$HOME/zero-one"
 export PYTHONPATH="$HOME/zero-one:$HOME/zero-one/src"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True   # reduce fragmentation OOM
 RUN="$HOME/.pixi/bin/pixi run --manifest-path $HOME/zero-one/pixi.toml"
-N="${N:-100}"; BS="${BS:-100}"
-echo "node=$(hostname) BASE=$BASE OUTROOT=$OUTROOT N=$N"
+N="${N:-60}"; BS="${BS:-48}"; MNT="${MNT:-384}"   # 48 fits 64GB w/ ~2.5k-tok prompts; 100 OOMs
+echo "node=$(hostname) BASE=$BASE OUTROOT=$OUTROOT N=$N BS=$BS MNT=$MNT"
 $RUN python3 leonardo/eval_local_batched.py --base "$BASE" --adapters "$OUTROOT" \
-     --n "$N" --batch_size "$BS"
+     --n "$N" --batch_size "$BS" --max_new_tokens "$MNT"
 echo "DONE → $OUTROOT/eval_local_batched.json"
