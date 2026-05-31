@@ -40,10 +40,11 @@ export default function App() {
   const timer = useRef<number | undefined>(undefined)
 
   useEffect(() => {
+    const B = import.meta.env.BASE_URL // '/' locally, '/uniqa-conversion-coach/' on Pages
     ;(async () => {
-      setOff(await loadJsonl<Session>('/sessions_coach_off.jsonl'))
-      setOn(await loadJsonl<Session>('/sessions_coach_on.jsonl'))
-      setSummary(await (await fetch('/summary.json')).json())
+      setOff(await loadJsonl<Session>(`${B}sessions_coach_off.jsonl`))
+      setOn(await loadJsonl<Session>(`${B}sessions_coach_on.jsonl`))
+      setSummary(await (await fetch(`${B}summary.json`)).json())
     })().catch((e) => console.error(e))
   }, [])
 
