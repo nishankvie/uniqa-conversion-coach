@@ -30,7 +30,9 @@ _FEELING_PLAYBOOK: dict[str, list[str]] = {
 _PERSONA_PRIORITY = {
     # Peter: route to a human channel early, before the price wall
     "peter": {Step.COVERAGE_TYPE: ["callback_offer", "whatsapp_bot"],
-              Step.PERSONAL_INFO: ["callback_offer", "whatsapp_bot"]},
+              # form-averse → "leave email/phone, we take it from here" (skips the forms = his conversion)
+              Step.PERSONAL_INFO: ["contact_handoff", "callback_offer", "whatsapp_bot"],
+              Step.PERSONAL_DATA: ["contact_handoff", "callback_offer"]},
     # Judith: graceful advisor option / lower stakes at the final price
     "judith": {Step.PERSONAL_DATA: ["advisor_handoff", "social_proof"],
                Step.TARIFF_SELECT: ["upgrade_path", "social_proof"]},

@@ -46,6 +46,10 @@ Add freely; keep numbered (the prompt cites H#).
 ## Channel / capture (persona + device)
 - **H16 — Peter wants a human.** Early → `callback_offer` / `whatsapp_bot` / `voice_questions`
   (leave a number for a callback, or record/type questions). Online purchase is NOT his target.
+- **H16b — Peter's PERFECT move = `contact_handoff`.** For the form-averse, service-affine user the
+  ideal intervention is “Don't fill any of this — just leave your email/phone and we'll take it from
+  here.” Skips ALL remaining forms/questions; a person finishes with them. This IS Peter's
+  conversion (qualified service contact), so fire it the moment form-overwhelm is confident.
 - **H17 — mobile = capture the lead.** On mobile, the natural ask is **phone capture** (callback /
   retarget) via bottom sheet — lower-friction than finishing a long form on a small screen.
 - **H18 — ID Austria autofill.** Offer `id_austria_login` to auto-fill identity/SV details (eID) —

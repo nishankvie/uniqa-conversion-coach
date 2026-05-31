@@ -145,6 +145,11 @@ CATALOG: dict[str, Intervention] = {i.id: i for i in [
         "Low-effort human option: leave a phone number for a callback, or record/type your questions "
         "and get them answered — the natural ask for service-preferring or mobile users.",
         (_S1, _S3, _S4), ("peter",)),
+    Intervention("contact_handoff", Category.HANDOFF, "Leave email/phone — we take it from here",
+        "The PERFECT move for the service-affine, form-averse user: 'Don't fill any of this — just "
+        "leave your email or phone and we'll take it from here.' Skips ALL remaining forms/questions; "
+        "a person completes it with them. For Peter this IS the conversion (qualified service contact).",
+        (_S3, _S4, _S6), ("peter",)),
     Intervention("phone_capture", Category.CAPTURE, "Get your quote by text/call (mobile)",
         "On mobile, capture the phone number to send the quote + enable a callback / retarget — "
         "lower-friction than finishing a long form on a small screen; salvages the lead.",
