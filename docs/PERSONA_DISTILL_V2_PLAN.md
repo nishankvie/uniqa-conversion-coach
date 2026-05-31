@@ -77,7 +77,7 @@ the full `persona.md` in the prompt. Enables one-model serving + **cross-persona
 
 ## Task 5 — Coherent rollout eval (batched)
 - `BatchedLocalTeacher.generate_cohort` (Mode A) → `validate` → per-persona **S4/S6 cond churn +
-  conversion + ε** vs `ABANDON_PROBS`. (`leonardo/show_eval.py`.)
+  conversion + ε** vs `ABANDON_PROBS`. (`slurm/show_eval.py`.)
 - Settings that worked: batch=48, N≈60–100, `max_new_tokens≈384`, `expandable_segments`,
   `--time 1:00:00`, robust incremental writes.
 - **DoD:** report printed; compare to frontier ε≈0.10 and to v1's ε≈0.48.

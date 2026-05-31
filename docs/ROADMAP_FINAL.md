@@ -33,13 +33,13 @@ canned JSON.**
   is explicit that the *coach* (not the persona) is the real Leonardo subject, and coach
   distillation needs a trace dataset we haven't generated → not feasible in 10h.
 - **Why hybrid not pure B:** Leonardo persona run is genuinely "fire and forget" — the
-  scaffold exists (`leonardo/{prepare_sft,train_persona_lora,slurm_finetune}.py`), the
+  scaffold exists (`slurm/{prepare_sft,train_persona_lora,slurm_finetune}.py`), the
   dataset exists (`datasets/persona_v1/sft_steps.jsonl`, 2122 pairs), the reservation
   window ends Sun 12:00 (after our deadline). Cost to launch ≈ 30 min; upside = real HPC bullet.
 
 ### Explicitly CUT / DEFERRED tonight
 - ❌ **Coach distillation on Leonardo** (no trace dataset; out of time).
-- ❌ **Z3 formal certificate** (already in `specs/deferred/`, stay deferred).
+- ❌ **Z3 formal certificate** (already in `deferred/`, stay deferred).
 - ❌ **Loop B / off-policy IPS eval** (no real data anyway).
 - ❌ **New surfaces beyond what's already wired** (email, WA, save_progress already have demo decisions — don't add survey/LP/booking now).
 - ❌ **Re-tuning persona dials** (regen at N=500 ε=0.128 is fine; either ship it or fall back to persona_v1 N=300 ε=0.10 — both are demonstrable).
@@ -83,8 +83,8 @@ This is the only Leonardo work. **Fire-and-forget**, no babysitting after launch
 
 ```bash
 # 1. prepare SFT shards LOCALLY (login node has the dataset anyway, but do it once here too)
-python leonardo/prepare_sft.py --in datasets/persona_v1/sft_steps.jsonl --out leonardo/data
-# expect leonardo/data/{judith,franz,peter}.{train,val}.jsonl + summary.json
+python slurm/prepare_sft.py --in datasets/persona_v1/sft_steps.jsonl --out slurm/data
+# expect slurm/data/{judith,franz,peter}.{train,val}.jsonl + summary.json
 
 # 2. connect to Leonardo (skill: leonardo-connect)
 #    On LOGIN node, pre-stage base weights (compute nodes have NO internet):
@@ -96,11 +96,11 @@ huggingface-cli download Qwen/Qwen2.5-1.5B-Instruct --local-dir $HOME/models/qwe
 $LEO put leonardo
 
 # 4. submit the job — partition boost_usr_prod, reservation s_tra_ncc (ends Sun 12:00)
-$LEO run "cd zero-one && sbatch leonardo/slurm_finetune.sh"
+$LEO run "cd zero-one && sbatch slurm/slurm_finetune.sh"
 # note the JOBID; the job runs ~1.5h sequentially across the 3 personas + eval
 ```
 
-- Files touched: `leonardo/slurm_finetune.sh` (may need to override `BASE` to the
+- Files touched: `slurm/slurm_finetune.sh` (may need to override `BASE` to the
   pre-staged path: `export BASE=$HOME/models/qwen2.5-1.5b` in the sbatch env).
 - Acceptance: `squeue --me` shows the job RUNNING or PENDING with a reasonable ETA.
   Move on — **do not wait for it.** If anything in this task takes >45 min, abort
@@ -114,7 +114,7 @@ $LEO run "cd zero-one && sbatch leonardo/slurm_finetune.sh"
 The single most demo-critical piece. Build a small WebSocket bridge that wraps the
 existing rule coach + an OpenRouter LLM coach behind one endpoint the webapp can hit.
 
-**New file: `src/uniqa/coach_bridge.py`** (≈120 LOC)
+**New file: `coach/coach_bridge.py`** (≈120 LOC)
 
 ```python
 # FastAPI WS server. Listens for activity events from the React Recorder,
@@ -122,13 +122,13 @@ existing rule coach + an OpenRouter LLM coach behind one endpoint the webapp can
 # pushes resulting CoachDecision JSON back over the same socket.
 #
 # Two coach backends, toggle via query param ?backend=rule|llm :
-#   - "rule": existing src/uniqa/coach.py decide_action() -> map via coach_io
+#   - "rule": existing coach/coach.py decide_action() -> map via coach_io
 #   - "llm":  OpenRouter gpt-4o-mini with a system prompt embedding
 #             coach.py's hard constraints + COACH_MODIFIERS table (reuse persona_datagen's
 #             OpenRouter call helper for plumbing)
 #
 # Throttle: at most 1 decision per ~2s per session, and respect MESSAGE_BUDGET=3.
-# Output JSON must match webapp/src/coach/decisionStream.ts CoachDecision shape
+# Output JSON must match demo/src/coach/decisionStream.ts CoachDecision shape
 # (effector + step + target? + payload + render? + reasoning + confidence).
 ```
 
@@ -137,11 +137,11 @@ Concrete steps:
 2. Implement `app = FastAPI()` + `@app.websocket("/coach")` handler.
 3. On each inbound message `{type:"event", event:{...}}` append to an `ActivityLog`, build a `CoachObservation` via `coach_io.observation_from_log`, call the chosen backend, emit `CoachDecision.to_dict()` if non-`NO_ACTION`.
 4. For the LLM backend: hand-craft a tight system prompt (~40 lines) that includes the action space, the Franz-never-advisor rule, Peter-pre-S4 callback rule, and a JSON-only output requirement. Validate the parsed action with `coach.validate_output(action, persona_hint)`.
-5. Reuse the existing 5 demo decision JSONs (`webapp/src/coach/decisions/*.json`) as **render templates** — the backend picks the right one by `intent` and merges in dynamic copy. This avoids hand-building json-render specs server-side.
-6. Smoke test: `pytest src/uniqa/tests/test_coach_bridge.py` — one test, hits the WS, fires a synthetic premium-click event, asserts an `upgrade_explain` decision comes back.
+5. Reuse the existing 5 demo decision JSONs (`demo/src/coach/decisions/*.json`) as **render templates** — the backend picks the right one by `intent` and merges in dynamic copy. This avoids hand-building json-render specs server-side.
+6. Smoke test: `pytest tests/test_coach_bridge.py` — one test, hits the WS, fires a synthetic premium-click event, asserts an `upgrade_explain` decision comes back.
 7. Run: `uvicorn uniqa.coach_bridge:app --port 8765 --reload`.
 
-- Files touched: `src/uniqa/coach_bridge.py` (new), `pyproject.toml`, `src/uniqa/tests/test_coach_bridge.py` (new, 1 test).
+- Files touched: `coach/coach_bridge.py` (new), `pyproject.toml`, `tests/test_coach_bridge.py` (new, 1 test).
 - Acceptance: `wscat -c ws://localhost:8765/coach?persona=franz&backend=rule` returns a decision JSON within 500ms after firing a `premium_click` event.
 
 ---
@@ -151,12 +151,12 @@ Concrete steps:
 Replace the mock stream in the FunnelTwin mode with the live WS, so the existing
 `CoachLayer` renders real decisions. Keep the demo buttons as a fallback.
 
-1. In `webapp/src/App.jsx`, `CoachLayerInner`: if `?backend=live` in URL, instantiate `wsStream("ws://localhost:8765/coach?persona=${persona}")` instead of `createLocalMockStream()`. The `wsStream` function already exists in `webapp/src/coach/decisionStream.ts` (verified). 
-2. Wire the recorder to **push every event** to the WS, not just subscribe. Add a tiny `emitToBridge(ev)` callback in the Recorder (`webapp/src/capture.js`) that the App.jsx hooks up when `?backend=live`.
+1. In `demo/src/App.jsx`, `CoachLayerInner`: if `?backend=live` in URL, instantiate `wsStream("ws://localhost:8765/coach?persona=${persona}")` instead of `createLocalMockStream()`. The `wsStream` function already exists in `demo/src/coach/decisionStream.ts` (verified). 
+2. Wire the recorder to **push every event** to the WS, not just subscribe. Add a tiny `emitToBridge(ev)` callback in the Recorder (`demo/src/capture.js`) that the App.jsx hooks up when `?backend=live`.
 3. Add a "Live coach" toggle button next to the existing Demo buttons so the demo operator can switch backends mid-session if the LLM flakes.
 4. Manual smoke: open `http://localhost:5173/?mode=twin&backend=live&persona=franz`, click Premium tariff at S4, see the `upgrade_explain` widget appear from the bridge (not from a button press).
 
-- Files touched: `webapp/src/App.jsx` (~30 LOC), `webapp/src/capture.js` (~10 LOC), one new "Live" badge in the sidebar.
+- Files touched: `demo/src/App.jsx` (~30 LOC), `demo/src/capture.js` (~10 LOC), one new "Live" badge in the sidebar.
 - Acceptance: live mode produces at least 2 distinct decisions across a Franz S1→S6 walk; rule-mode and llm-mode both work; existing demo buttons still fire correctly.
 
 ---
@@ -165,11 +165,11 @@ Replace the mock stream in the FunnelTwin mode with the live WS, so the existing
 
 So the judge sees *numbers*, not just one widget pop.
 
-1. **Uplift sidebar:** in App.jsx FunnelTwin mode, add a right-rail card showing the **precomputed** Monte-Carlo A/B numbers (`Overall: 5.6% → 14.5%`, per-persona breakdown). Source: run `python -m uniqa.journey -n 4000 --json > webapp/public/ab_results.json` once and fetch it. *Don't compute live.*
-2. **Persona-autorun mode:** add a "▶ Auto-play as Franz" button that fires a scripted sequence of events (S1 valid → S2 valid → S3 fill → S4 premium_click → wait → S6 hesitate) over ~15 seconds, so a judge sees the coach reacting in real time without manual clicking. Scripts live in `webapp/src/twin/data/autoplay.{judith,franz,peter}.ts`. Three scripts, one per persona, ~20 events each, hard-coded delays.
+1. **Uplift sidebar:** in App.jsx FunnelTwin mode, add a right-rail card showing the **precomputed** Monte-Carlo A/B numbers (`Overall: 5.6% → 14.5%`, per-persona breakdown). Source: run `python -m calculator.journey -n 4000 --json > demo/public/ab_results.json` once and fetch it. *Don't compute live.*
+2. **Persona-autorun mode:** add a "▶ Auto-play as Franz" button that fires a scripted sequence of events (S1 valid → S2 valid → S3 fill → S4 premium_click → wait → S6 hesitate) over ~15 seconds, so a judge sees the coach reacting in real time without manual clicking. Scripts live in `demo/src/twin/data/autoplay.{judith,franz,peter}.ts`. Three scripts, one per persona, ~20 events each, hard-coded delays.
 3. The autoplay is what the operator clicks during the demo: pick persona → autoplay → coach interventions render live → narrate.
 
-- Files touched: `webapp/src/App.jsx`, `webapp/public/ab_results.json` (new), `webapp/src/twin/data/autoplay.*.ts` (new).
+- Files touched: `demo/src/App.jsx`, `demo/public/ab_results.json` (new), `demo/src/twin/data/autoplay.*.ts` (new).
 - Acceptance: clicking "Auto-play as Franz" with live backend produces ≥2 coach interventions within 15s, the uplift card shows Coach-off vs Coach-on numbers, and the same flow visibly differs for Peter (callback offer before S4) and Judith (graceful advisor option at S6).
 
 ---
@@ -192,20 +192,20 @@ Set an alarm. If T0–T4 ran long, sleep at least 3h — diminishing returns pas
 
 ### T7 — Final A/B + README (08:30–09:15, DEMO, 45m)
 
-1. Re-run `python -m uniqa.journey -n 4000 --json > webapp/public/ab_results.json` against current code (in case any constant moved).
+1. Re-run `python -m calculator.journey -n 4000 --json > demo/public/ab_results.json` against current code (in case any constant moved).
 2. Update `README.md` "Simulation results" table with the current numbers.
 3. Add a **"Demo" section** at the top: `streamlit run` removed if not used; the *live demo URL* and steps to reproduce (`uvicorn …`, `npm run dev`, browser URL, autoplay flow).
 4. Add a one-paragraph "What the judge sees in 60s" at the top of README.
 5. Sanity: `pytest -q` still green (≤ 80 tests).
 
-- Files touched: `README.md`, `webapp/public/ab_results.json`.
+- Files touched: `README.md`, `demo/public/ab_results.json`.
 - Acceptance: README opens with a runnable demo recipe; A/B table reflects current code; tests green.
 
 ---
 
 ### T8 — Screencast fallback (09:15–09:45, DEMO, 30m)
 
-Record a 60–90s screen capture of the live demo: pick Franz → autoplay → coach intervenes → switch to Peter → callback widget → uplift card. Save as `webapp/public/demo.mp4`, link from README. **This is the fallback if the live demo flakes during judging.**
+Record a 60–90s screen capture of the live demo: pick Franz → autoplay → coach intervenes → switch to Peter → callback widget → uplift card. Save as `demo/public/demo.mp4`, link from README. **This is the fallback if the live demo flakes during judging.**
 
 ---
 
@@ -254,12 +254,12 @@ Push, tag, fill submission form, send link. Done.
 - ✅ **Self-improvement story:** autoresearch loop + empirical gate, with Z3 explicitly flagged DEFERRED.
 - ✅ **HPC story** (if T6 succeeds): "3 personas distilled to Qwen2.5-1.5B LoRA on CINECA Leonardo, eval ε=X". Otherwise: scaffold present, run pending.
 - ✅ **Tests green**, `pytest -q` reproducible.
-- ✅ **Screencast** (`webapp/public/demo.mp4`) linked from README as judging fallback.
+- ✅ **Screencast** (`demo/public/demo.mp4`) linked from README as judging fallback.
 - ✅ **Honest scope:** "Synthetic-data-only validation — no live customer experimentation."
 
 ### Hard gates that must hold at submission
 - `pytest -q` passes.
-- `npm test` in `webapp/` passes (parity tests for twin already green per current state).
+- `npm test` in `demo/` passes (parity tests for twin already green per current state).
 - Live demo runs end-to-end at least once on the operator's laptop **before** judging starts.
 - Screencast exists.
 - README's "Quickstart" copy-paste actually works.

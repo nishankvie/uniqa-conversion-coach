@@ -35,16 +35,23 @@ karpathy-experiment/
 # Stray / unrelated experiments
 tictactoe-extension/
 
-# React capture app (Node)
-webapp/node_modules/
-webapp/dist/
+# Demo React app (Node)
+demo/node_modules/
+demo/dist/
 
 # Research run artifacts (raw generated sessions; reports promoted manually)
 research/runs/
 
 # eval reports (data; promote notable ones manually)
-evals/reports/
+evaluations/reports/
 research/runs/_global_best.json
 
-# Leonardo model adapters (large binaries produced on the cluster)
-leonardo/out/
+# ─── Heavy generated data — regenerable, never in git (233MB) ───
+# Persona SFT datasets + soft labels (regenerate via research/datagen_v2.py)
+datasets/
+# Trained sklearn persona-predictor blobs (regenerate via research/train_persona_predictor.py)
+models/
+# Slurm training shards + cluster-produced LoRA adapters
+slurm/data/
+slurm/data_tagged/
+slurm/out/

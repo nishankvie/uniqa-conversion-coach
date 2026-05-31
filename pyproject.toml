@@ -16,12 +16,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
-# DEFERRED: the formal Z3 certificate (specs/deferred/coach_autoimprove_z3.py).
+# DEFERRED: the formal Z3 certificate (deferred/coach_autoimprove_z3.py).
 deferred = ["z3-solver>=4.12"]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+packages = ["calculator", "coach", "persona", "evaluations", "deferred"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
-testpaths = ["src/uniqa/tests"]
+pythonpath = ["."]
+testpaths = ["tests"]

@@ -21,8 +21,8 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from uniqa.funnel import Step, PERSONA_WEIGHTS
-from uniqa.persona_datagen import (
+from calculator.funnel import Step, PERSONA_WEIGHTS
+from persona.persona_datagen import (
     LLMTeacher, _sample_disposition, _sample_session_context, _strip_fences,
     build_step_decision_prompt,
 )
@@ -212,7 +212,7 @@ def main(argv=None):
         (out / "soft_labels.jsonl").write_text(
             "\n".join(json.dumps({k: r[k] for k in ("persona", "step", "mood", "intent",
                                                     "leave_rate", "valid")}) for r in rows) + "\n")
-        from uniqa.persona_datagen import agent_persona_prompt
+        from persona.persona_datagen import agent_persona_prompt
         from research.tune import load_params
         (out / "manifest.json").write_text(json.dumps({
             "mode": "per-step state-covering K-sampled (lean prompt)", "teacher": "openrouter:gpt-4o-mini",

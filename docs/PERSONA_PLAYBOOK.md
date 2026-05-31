@@ -16,7 +16,7 @@ agent against — and later the fine-tuned local persona models.
 
 ## 0. Where to record
 
-Capture app: `webapp/` (Vite + React). Two surfaces, same `Recorder` / same JSON schema
+Capture app: `demo/` (Vite + React). Two surfaces, same `Recorder` / same JSON schema
 (`contracts.ActivityLog`, every event inside `widget.legal_events(step)`):
 
 - **`?mode=twin`** — the 1-1 funnel twin (recommended; richest, parity-tested action space).
@@ -215,7 +215,7 @@ These `thought` fields ride inside the session trace (`Event.thought`, already i
 
 ```
 [1] HUMAN capture (this doc)         → _local/captures/<persona>/*.json   (behavior+timing truth)
-[2] AGENT gen 30–40/persona          → python -m uniqa.persona_datagen    (LLM teacher, target-free prompt)
+[2] AGENT gen 30–40/persona          → python -m persona.persona_datagen    (LLM teacher, target-free prompt)
 [3] COMPARE human vs agent           → python -m uniqa.compare … + per-persona stat/pattern diff
         → adjust PROMPT (not targets) until conformance + human-like patterns hold
 [4] FINAL datasets vs static widget  → with thoughts; 1st thought = context

@@ -8,9 +8,9 @@ side by side.  python -m research.compare_gen --N 40 --workers 48
 import argparse, random, time
 from concurrent.futures import ThreadPoolExecutor
 
-from uniqa.persona_datagen import LLMTeacher, generate_feed
+from persona.persona_datagen import LLMTeacher, generate_feed
 from research.run import validate, PERSONAS
-from uniqa.funnel import ABANDON_PROBS, Step
+from calculator.funnel import ABANDON_PROBS, Step
 
 CELLS = [Step.PERSONAL_INFO, Step.TARIFF_SELECT, Step.PERSONAL_DATA]
 

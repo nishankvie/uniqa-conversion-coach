@@ -2,7 +2,7 @@
 
 How the pieces fit, what the Coach can actually do, and the two processes that
 make it improve. Backed by code: `contracts.py`, `coach_io.py`, `psyche.py`,
-`autoresearch.py`, `specs/deferred/coach_autoimprove_z3.py`.
+`autoresearch.py`, `deferred/coach_autoimprove_z3.py`.
 
 ---
 
@@ -146,7 +146,7 @@ PERSONA MODEL ─▶ APP ─▶ COACH(π) ─▶ outcome ─▶ gate(Δuplift > 
 
 Model-based RL: the persona model is the learned environment; reward =
 `conversion − annoyance_penalty − intervention_cost`. `autoresearch.py` already
-implements the gated hill-climb; `specs/deferred/coach_autoimprove_z3.py` certifies that
+implements the gated hill-climb; `deferred/coach_autoimprove_z3.py` certifies that
 **if** the simulator is faithful (`|U_sim − U_real| ≤ b`, `τ ≥ 2b`) **then** every
 accepted policy is a real improvement, monotone and convergent. This loop is cheap
 and never needs real users — run it on CPU forever (Leonardo `L2`).
@@ -185,7 +185,7 @@ improvement only ships if the simulator it was found on is close enough to reali
 
 - ✅ Contracts (`contracts.py`): events, effectors+guardrails, hypotheses, Coach I/O, render envelope — all JSON round-tripped.
 - ✅ Adapter (`coach_io.py`): psyche signals → activity log → observation → `RuleCoachModel.decide` → decision; hypothesis scoring.
-- ✅ Loop A: `autoresearch.py` (empirical gate `Δuplift > τ`). Formal Z3 certificate **deferred** (`specs/deferred/coach_autoimprove_z3.py`).
+- ✅ Loop A: `autoresearch.py` (empirical gate `Δuplift > τ`). Formal Z3 certificate **deferred** (`deferred/coach_autoimprove_z3.py`).
 - ▢ Loop B: interfaces designed here; `PersonaFit` (re-fit latents) + IPS off-policy eval are the next build. No real data yet → ε estimated from calibration anchors.
 - ▢ Wire `RuleCoachModel` into `journey.run_journey` as the decision source (drop-in for `decide_action`) so the whole sim runs on the contract.
 - ▢ Swap `RuleCoachModel` body for a learned policy (same signature).

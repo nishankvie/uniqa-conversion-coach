@@ -14,7 +14,7 @@ NOTE on dials: v2.1 internalizes dials WITH the persona tag (fixed per persona) 
 go through regenerate+retrain. Post-hoc dial-tunability (dials in the prompt) needs dial-AUGMENTED
 training data (varied dials per persona) — deferred to v2.2.
 
-    python -m research.student_view --in datasets/persona_v2/sft_steps.jsonl --out leonardo/data_tagged
+    python -m research.student_view --in datasets/persona_v2/sft_steps.jsonl --out slurm/data_tagged
 """
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ def _toks(msgs):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--in", dest="inp", default="datasets/persona_v2/sft_steps.jsonl")
-    ap.add_argument("--out", default="leonardo/data_tagged")
+    ap.add_argument("--out", default="slurm/data_tagged")
     ap.add_argument("--level", type=int, default=1)
     ap.add_argument("--val_frac", type=float, default=0.1)
     ap.add_argument("--seed", type=int, default=0)

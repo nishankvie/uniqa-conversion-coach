@@ -4,7 +4,7 @@
 > dials, persona-coherent, ε=0.092–0.10 vs the funnel.py anchors (under the 0.12 gate; all
 > personas convert). Locked params in `prompts/personas/*.params.json` + global-best.
 > Locked dataset: `datasets/persona_v1/` (300 sessions, 1238 per-step SFT pairs).
-> **Active next stage:** distil into 3 fast LOCAL per-step models on Leonardo (`leonardo/`),
+> **Active next stage:** distil into 3 fast LOCAL per-step models on Leonardo (`slurm/`),
 > each validated to be statistically close to this dataset, then swap in for fast iteration
 > + the dynamic coach loop. (Open: Franz's 0.10 conv anchor is a stale price-jump artifact —
 > re-derive if exact per-cell PASS is required.)
@@ -405,7 +405,7 @@ reliably hit all marginal targets. Two structural blockers + one architecture de
 ## 8. After lock — optional: local fast model (added to plan)
 
 Once params are locked and the eval passes, distil the LLM agent into a **local, fast model**
-that must pass the SAME `evals/persona_stats_eval.py`. Candidate approaches to compare:
+that must pass the SAME `evaluations/persona_stats_eval.py`. Candidate approaches to compare:
 small decoder TLM over journey tokens (existing `tlm.py` direction) · a tiny per-step
 classifier/hazard (if we go hybrid) · LoRA-distil of the teacher. Pick on eval conformance +
 latency, transformer or not. Output: local persona model behind the same interface.

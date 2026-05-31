@@ -2,7 +2,7 @@
 
 > **Z3 status: DEFERRED.** The self-improvement gate is **empirical** for now
 > (accept iff `Δuplift > τ` under an annoyance ceiling). The formal Z3 safety
-> certificate is drafted at `specs/deferred/coach_autoimprove_z3.py` and is out of
+> certificate is drafted at `deferred/coach_autoimprove_z3.py` and is out of
 > scope this round; mentions of "Z3-certified" below describe that deferred proof.
 
 > **Scope now.** Personas stay **LLM-driven** (OpenRouter teacher *is* the persona —
@@ -11,7 +11,7 @@
 > deferred), then **generalize the
 > coach to multiple surfaces** (on-page widget, email, WhatsApp bot, landing page,
 > feedback form, survey) and wire the **outer feedback loop** (periodic model
-> re-evals/updates from production logs).
+> re-evaluations/updates from production logs).
 >
 > **The coach is the training subject.** After the prompt is accepted by the gate we **fine-tune
 > a 1B model (MiniCPM5-1B, LoRA) as the coach on CINECA Leonardo** — input = current
@@ -21,7 +21,7 @@
 >
 > Grounded in code that exists: `sim.py` (Protocol loop), `widget.py` (static widget +
 > action space), `persona_datagen.py` (OpenRouter persona/teacher), `contracts.py`
-> (JSON I/O), `autoresearch.py` + `specs/deferred/coach_autoimprove_z3.py` (Loop A + proof).
+> (JSON I/O), `autoresearch.py` + `deferred/coach_autoimprove_z3.py` (Loop A + proof).
 
 ---
 
@@ -86,24 +86,25 @@ optimization, not a prerequisite.
 Map the pipeline to modules. `(new)` = to build; everything else exists.
 
 ```
-src/uniqa/
+calculator/
   contracts.py        events · effectors+SURFACES · Coach I/O · render envelopes
   funnel.py / scope.py  funnel state machine + in-scope guard
   widget.py           StaticWidget: real funnel screens + action space (the env)
   surfaces/ (new)     Surface impls: on_page, email, whatsapp, landing, survey
                       — each = render(schema)→JSON + outcome semantics, one iface
+  sim.py              turn-based loop: persona ↔ Surface ↔ coach (Protocol-typed)
+persona/
   psyche.py           calibrated latent persona (volume floor / baseline / Z3 b-anchor)
   personas.py +
   persona_datagen.py  LLM-driven personas (OpenRouter) — the persona engine NOW
-  sim.py              turn-based loop: persona ↔ Surface ↔ coach (Protocol-typed)
-  coach.py +
-  coach_io.py         coach policy (PROMPT + decision rules) + observation/decision adapter
-  autoresearch.py     Loop A: propose coach-prompt → eval vs personas → Z3 gate → accept
-  simulation.py       Monte-Carlo A/B uplift report
+coach/
+  coach.py + coach_io.py   coach policy (rules) + observation/decision adapter
+  coach_prompt.py     the reasoning decision PROMPT (5-step workflow)
+  interventions.py    intervention catalog · baseline.py  cohort z-score baseline
   loopb/ (new)        Loop B: prod-log ingest · persona refit · IPS off-policy eval
-  app.py              Streamlit demo
-specs/deferred/coach_autoimprove_z3.py   the certificate (T1–T5)
-docs/                 this plan · ARCHITECTURE · AUTORESEARCH · FUNNEL_AUTOPSY · …
+demo/                 React funnel twin + coach overlay (json-render) · streamlit_app.py
+deferred/             autoresearch.py (Loop A) · simulation.py (MC A/B) · coach_autoimprove_z3.py (T1–T5)
+docs/                 this plan · ARCHITECTURE · COACH_MODEL · AUTORESEARCH · FUNNEL_AUTOPSY · …
 ```
 
 The three players still talk over **one JSON contract** (`contracts.py`); each is
@@ -137,7 +138,7 @@ ASSISTANT:{ "events": [ {type,target,value,thought}, ... ] }   # this step only
 ## 3. The static widget (env) + action space — single source of truth
 
 The **static widget spec** = the real funnel screens + the closed per-step action
-space. It is `src/uniqa/widget.py` (executable) plus this table; drop-off analysis is
+space. It is `calculator/widget.py` (executable) plus this table; drop-off analysis is
 in `FUNNEL_AUTOPSY.md`. The funnel starts at the **intro screens**, not the tariff
 table.
 
@@ -222,7 +223,7 @@ EVALUATE Δuplift = conversion(variant) − conversion(current);  annoyance, sur
 GATE     accept iff Δuplift > τ  (empirical margin) AND annoyance ≤ ceiling
 REPEAT
          [DEFERRED: the formal Z3 certificate that τ ≥ 2b makes every accepted
-          change a real, monotone improvement — specs/deferred/coach_autoimprove_z3.py]
+          change a real, monotone improvement — deferred/coach_autoimprove_z3.py]
 ```
 
 - `autoresearch.py` already implements the gated hill-climb; here the **mutation space
@@ -230,7 +231,7 @@ REPEAT
   each accepted change is explainable.
 - **Formal safety proof — DEFERRED:** the Z3 certificate (*if `|U_sim − U_real| ≤ b`
   and `τ ≥ 2b`, every accepted prompt is a real, monotone improvement and the loop
-  converges*) is drafted in `specs/deferred/coach_autoimprove_z3.py` and written up in
+  converges*) is drafted in `deferred/coach_autoimprove_z3.py` and written up in
   `AUTORESEARCH.md`, but is out of scope this round. For now the gate is purely
   empirical (`Δuplift > τ`); choose `τ` conservatively from the persona-sim's anchor TV.
 - **Demo deliverable:** show a before/after coach prompt where Loop A found a real,
@@ -375,5 +376,5 @@ multimodal persona · deposit-first / eID structural funnel changes (pitch only,
 **Reuse, don't rebuild:** `sim.py` Protocol loop (persona ↔ surface ↔ coach) ·
 `widget.py` action space + reactive signals · `persona_datagen.py` OpenRouter persona +
 schema gate · `contracts.py` JSON I/O · `psyche.py` calibrated floor + `b`-anchor ·
-`autoresearch.py` + `specs/deferred/coach_autoimprove_z3.py` (Loop A + certificate) ·
+`autoresearch.py` + `deferred/coach_autoimprove_z3.py` (Loop A + certificate) ·
 `leonardo-connect` skill (SSH + SLURM templates for the §5.1 coach job).

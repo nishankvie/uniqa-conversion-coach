@@ -24,8 +24,8 @@ import random
 import time
 from pathlib import Path
 
-from uniqa.funnel import PERSONA_WEIGHTS
-from uniqa.persona_datagen import LLMTeacher, OfflineTeacher, generate_feed, agent_persona_prompt
+from calculator.funnel import PERSONA_WEIGHTS
+from persona.persona_datagen import LLMTeacher, OfflineTeacher, generate_feed, agent_persona_prompt
 from research.run import validate, format_md, PERSONAS
 from research.tune import load_params
 

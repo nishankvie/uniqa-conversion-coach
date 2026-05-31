@@ -29,8 +29,8 @@ user's activity log and issues bounded, auditable actions over a fixed contract.
 
 ## How it works
 
-Three models exchange JSON over one contract (`src/uniqa/contracts.py`); each is
-swappable behind a Protocol (`src/uniqa/sim.py`):
+Three models exchange JSON over one contract (`calculator/contracts.py`); each is
+swappable behind a Protocol (`calculator/sim.py`):
 
 ```
    PERSONA MODEL  ──user events──▶   SURFACE MODEL (the env)  ──signals──▶  PERSONA
@@ -66,7 +66,7 @@ on each release. Details: [`docs/AUTORESEARCH.md`](docs/AUTORESEARCH.md).
 > **Deferred:** a formal safety certificate for the gate (a Z3 proof that, given
 > simulator fidelity `|U_sim − U_real| ≤ b` and margin `τ ≥ 2b`, every accepted change
 > is a real, monotone improvement) is drafted in
-> `specs/deferred/coach_autoimprove_z3.py` but is out of scope for now.
+> `deferred/coach_autoimprove_z3.py` but is out of scope for now.
 
 Once a policy is accepted, the Coach is distilled into a **local 1B model
 (MiniCPM5-1B, LoRA) fine-tuned on the CINECA Leonardo cluster** — input is the
@@ -103,23 +103,22 @@ alone — that restraint is part of the intervention-quality story.
 
 ```
 .
-├── README.md
-├── pyproject.toml                  src-layout package (uniqa-coach)
-├── src/uniqa/
-│   ├── contracts.py                JSON contract: events, effectors, Coach I/O, render envelopes
-│   ├── funnel.py · scope.py        funnel state machine + in-scope guard
-│   ├── widget.py                   static funnel screens + closed per-step action space
-│   ├── psyche.py                   latent-state persona baseline (calibration / volume floor)
-│   ├── personas.py · persona_datagen.py   LLM-driven personas (OpenRouter)
-│   ├── sim.py                      turn-based simulator (persona ↔ surface ↔ coach)
-│   ├── coach.py · coach_io.py      Coach policy + observation/decision adapter
-│   ├── autoresearch.py             self-improvement loop (propose → evaluate → gate)
-│   ├── simulation.py               Monte-Carlo A/B + uplift report
-│   ├── app.py                      Streamlit demo
-│   └── tests/                      76 tests (calibration, constraints, uplift, autoresearch, guardrails)
-├── specs/deferred/coach_autoimprove_z3.py   formal Z3 certificate (DEFERRED)
-└── docs/                           see Documentation below
+├── README.md · pyproject.toml
+├── calculator/     the App surface — funnel, scope, widget twin, contracts, sim, capture
+├── coach/          Coach policy — decision prompt, intervention catalog, baseline, adapters
+├── persona/        persona engine — LLM-driven personas, datagen, latent psyche baseline
+├── evaluations/    aggregate funnel-stat evals + human-vs-bot comparison
+├── research/       datagen v2, distillation, tuning, probes (scripts + findings)
+├── slurm/          Leonardo HPC — LoRA fine-tune + batched eval jobs
+├── prompts/        hand-scrubbed persona system prompts (+ params)
+├── demo/           React funnel twin + coach overlay (json-render) · Streamlit app
+├── tests/          80 tests (calibration, constraints, uplift, guardrails)
+├── deferred/       parked work — Z3 certificate, Monte-Carlo sim, TLM design, autoresearch
+└── docs/           see Documentation below
 ```
+
+Heavy generated data (`datasets/`, `models/`, `slurm/data*`, `slurm/out`) is gitignored —
+regenerate via `research/datagen_v2.py` and the `slurm/` jobs.
 
 ---
 
@@ -129,10 +128,10 @@ alone — that restraint is part of the intervention-quality story.
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-pytest -q                                 # full suite (76 tests)
-python -m uniqa.journey -n 4000           # baseline vs Coach A/B uplift report
-python -m uniqa.autoresearch --rounds 30  # gated self-improvement on the simulator
-streamlit run src/uniqa/app.py            # interactive demo (journey + A/B dashboards)
+pytest -q                                 # full suite (80 tests)
+python -m calculator.journey -n 4000           # baseline vs Coach A/B uplift report
+python -m deferred.autoresearch --rounds 30  # gated self-improvement on the simulator
+streamlit run demo/streamlit_app.py            # interactive demo (journey + A/B dashboards)
 ```
 
 ---
@@ -143,11 +142,14 @@ streamlit run src/uniqa/app.py            # interactive demo (journey + A/B dash
 |---|---|
 | [`docs/PIPELINE_PLAN.md`](docs/PIPELINE_PLAN.md) | The master plan: LLM personas, multi-surface coach, prompt autoimprovement + Z3, the coach 1B fine-tune (Leonardo), and the outer loop. |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | App/Coach split, the JSON contract, and the dual learning loop. |
-| [`docs/AUTORESEARCH.md`](docs/AUTORESEARCH.md) | The self-improvement loop (empirical gate; formal Z3 certificate deferred). |
+| [`docs/COACH_MODEL.md`](docs/COACH_MODEL.md) | The Coach: detection, decision workflow, signals, hypotheses (H1…), per-screen intervention design. |
+| [`docs/WIDGET_TWIN_DESIGN.md`](docs/WIDGET_TWIN_DESIGN.md) | The React funnel twin + coach overlay (json-render) implemented in `demo/`. |
 | [`docs/FUNNEL_AUTOPSY.md`](docs/FUNNEL_AUTOPSY.md) | The real funnel, screen by screen, and where users drop off. |
-| [`docs/PSYCHE_WALKTHROUGH.md`](docs/PSYCHE_WALKTHROUGH.md) | First-person trace of the funnel grounding the persona model. |
-| [`docs/RESEARCH_insurance_conversion.md`](docs/RESEARCH_insurance_conversion.md) | Conversion-optimization research brief. |
-| [`docs/deferred/`](docs/deferred/) | Deferred work (local persona models, trajectory-model design). Not needed to understand the current system. |
+| [`docs/PERSONA_PLAYBOOK.md`](docs/PERSONA_PLAYBOOK.md) · [`docs/PERSONA_DISTILL_V2_PLAN.md`](docs/PERSONA_DISTILL_V2_PLAN.md) | Persona behaviour spec + the per-step distillation plan for the local persona model. |
+| [`docs/REPORT_distillation_collapse.md`](docs/REPORT_distillation_collapse.md) | Problem→solution writeup: diagnosing & fixing the v1 distillation collapse. |
+| [`docs/PSYCHE_WALKTHROUGH.md`](docs/PSYCHE_WALKTHROUGH.md) · [`docs/RESEARCH_insurance_conversion.md`](docs/RESEARCH_insurance_conversion.md) | Funnel grounding + conversion-optimization research brief. |
+| [`docs/AUTORESEARCH.md`](docs/AUTORESEARCH.md) | The self-improvement loop (empirical gate; formal Z3 certificate deferred). |
+| [`deferred/`](deferred/) | Parked work: Z3 certificate, Monte-Carlo sim, local-model + trajectory-model design. Not needed to understand the current system. |
 
 ---
 

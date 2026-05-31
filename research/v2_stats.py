@@ -6,7 +6,7 @@ rates over the SAMPLED state mix — the coherent-rollout marginal is measured s
 import json, math
 from collections import defaultdict
 from pathlib import Path
-from uniqa.funnel import ABANDON_PROBS, PERSONA_WEIGHTS, Step
+from calculator.funnel import ABANDON_PROBS, PERSONA_WEIGHTS, Step
 
 F = "datasets/persona_v2/sft_steps.jsonl"
 ORDER = [Step.COVERAGE_TYPE, Step.INSURED, Step.PERSONAL_INFO, Step.TARIFF_SELECT, Step.PERSONAL_DATA]

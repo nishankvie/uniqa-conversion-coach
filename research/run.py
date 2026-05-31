@@ -31,9 +31,9 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import random as _random
-from uniqa.funnel import Step, PERSONA_WEIGHTS, ABANDON_PROBS
-from uniqa.contracts import EventType
-from uniqa.persona_datagen import (
+from calculator.funnel import Step, PERSONA_WEIGHTS, ABANDON_PROBS
+from calculator.contracts import EventType
+from persona.persona_datagen import (
     LLMTeacher, OfflineTeacher, default_teacher, generate_feed,
 )
 

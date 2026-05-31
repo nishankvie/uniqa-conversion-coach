@@ -25,7 +25,7 @@ import json
 import time
 from pathlib import Path
 
-from uniqa.persona_datagen import LLMTeacher
+from persona.persona_datagen import LLMTeacher
 from research.run import generate, validate, PERSONAS
 
 _PARAM_DIR = Path(__file__).resolve().parents[1] / "prompts" / "personas"

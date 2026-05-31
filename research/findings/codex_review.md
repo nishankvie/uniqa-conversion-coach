@@ -1,8 +1,8 @@
 You are a 200-IQ ML/simulation engineer giving a focused second opinion. READ these files in this repo (read-only):
 - research/PERSONA_PARAM_MODEL.md  (full diagnosis + results so far)
-- src/uniqa/persona_datagen.py     (the stepwise generator: build_step_decision_prompt, _session_stepwise, params_block, _COGNITIVE_MODEL)
+- persona/persona_datagen.py     (the stepwise generator: build_step_decision_prompt, _session_stepwise, params_block, _COGNITIVE_MODEL)
 - prompts/personas/judith.md, judith.params.json (and franz/peter)
-- src/uniqa/funnel.py (ABANDON_PROBS = eval targets; PERSONA_WEIGHTS 30/50/20)
+- calculator/funnel.py (ABANDON_PROBS = eval targets; PERSONA_WEIGHTS 30/50/20)
 - research/run.py (validate(): per-(persona,step) conditional bounce vs ABANDON_PROBS; ε = mean abs diff)
 
 GOAL: generate synthetic persona sessions (LLM, gpt-4o-mini) whose EMERGENT funnel stats match anchors
