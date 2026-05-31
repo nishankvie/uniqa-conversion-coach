@@ -309,7 +309,8 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
                                intent: str | None = None,
                                disposition: dict | None = None,
                                selected_tariff: str | None = None,
-                               coach_intervention: str | None = None) -> list[dict]:
+                               coach_intervention: str | None = None,
+                               lean: bool = False) -> list[dict]:
     """One STEP-BASED turn: emit this step's events, (optionally) track state vars, and
     make an explicit felt stay/leave decision. Returns (system, user) messages.
 
@@ -355,7 +356,23 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
                                  "dissatisfied | goal_achieved | coverage_mismatch | unanswered_question")
         if first:
             out_schema["intent"] = "<what info/outcome you came here to reach>"
-        rules += [
+        if lean:
+            rules += [
+                "Set `feeling` from this screen vs your willingness/comprehension/session_context: "
+                "distracted (exogenous interruption — notification/family/surroundings on mobile/commute → may idle/tab_blur then leave) · "
+                "cant_grasp (heavy screen, low grasp×high complexity → quietly drift off) · "
+                "too_much_effort (high effort for low reward → refuse) · "
+                "dissatisfied (contradicts/undershoots your_initial_intent: price higher than hoped, 'advisory required' when you wanted online → close) · "
+                "goal_achieved (if visit_goal was CHECK/COMPARE/SEE-FINAL-PRICE not buy → leave content once you've seen the number) · "
+                "coverage_mismatch (your session_instance.coverage_need not covered → leave) · "
+                "unanswered_question (you have an open_question and no way to ask → leave) · "
+                "engaged (delivers what you expected → continue).",
+                "If familiarity = been here before: input mechanically/fast, skip reading, beeline to price.",
+                "Update `state` honestly (drops on heavy screens / as the journey wears; carry from your_running_state); "
+                "judge vs your_initial_intent; let feeling+state drive the decision — don't continue just to see what's next.",
+            ]
+        else:
+            rules += [
             "Weigh this screen's `ux_complexity_here` against your own willingness/comprehension "
             "and your `session_context` (device + surroundings), then set `feeling`:",
             "  • 'distracted' — an EXOGENOUS life interruption pulled you away: a notification, a "
@@ -396,7 +413,13 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
         **({"tariff_coverage_brief": tariff_coverage_brief()} if include_state and step is Step.TARIFF_SELECT else {}),
         **(_real_prices_block(step, disposition) if include_state else {}),
         **(_final_price_block(disposition, selected_tariff) if include_state and step is Step.PERSONAL_DATA else {}),
-        **({"cognitive_model": _COGNITIVE_MODEL} if include_state else {}),
+        # lean keeps only the leave-DRIVING rules (price reaction + S6 commitment/price-jump +
+        # decision); drops state_update_rules (redundant w/ dials) + coverage_reaction_rule
+        # (covered by compressed rules). A/B-verified to preserve S4/S6 leave-rates.
+        **({"cognitive_model": _COGNITIVE_MODEL} if include_state and not lean else {}),
+        **({"cognitive_model": {k: v for k, v in _COGNITIVE_MODEL.items()
+            if k != "state_update_rules"}}
+           if include_state and lean else {}),
         "widget_responses_here": wrm["transitions"].get(step.value, {}),
         "conversion_definition": wrm["conversion_definition"],
         "your_running_state": state,

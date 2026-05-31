@@ -80,12 +80,15 @@ def sample_context(persona: str, step: Step, rng: random.Random) -> dict:
             "intent": intent, "selected_tariff": tariff}
 
 
+_LEAN = True   # set by main(); lean trims cognitive_model + compresses feeling rules (~20%)
+
+
 def build(ctx: dict) -> list[dict]:
     return build_step_decision_prompt(
         ctx["persona"], ctx["step"], ctx["brief"], ctx["state"],
         include_quant=False, include_params=True, include_state=True,
         disposition=ctx["disposition"], intent=ctx["intent"],
-        selected_tariff=ctx["selected_tariff"])
+        selected_tariff=ctx["selected_tariff"], lean=_LEAN)
 
 
 def classify(raw: str) -> str | None:
@@ -167,7 +170,10 @@ def main(argv=None):
     ap.add_argument("--workers", type=int, default=16)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--out", default="datasets/persona_v2")
+    ap.add_argument("--full", action="store_true", help="use the full (untrimmed) prompt for A/B")
     args = ap.parse_args(argv)
+    global _LEAN; _LEAN = not args.full
+    print("prompt:", "FULL" if args.full else "LEAN")
 
     steps = PROBE_STEPS if args.mode == "probe" else FLOW
     t0 = time.time()
