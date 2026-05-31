@@ -41,6 +41,7 @@ class _Run:
     t: float = 0.0
     active: bool = True
     feeling: str | None = None
+    hesitation: float = 0.0
     # coach-in-the-loop (Mode B)
     pending_text: str | None = None     # coach widget to SHOW entering the next step
     pending_id: str | None = None
@@ -126,7 +127,7 @@ class BatchedLocalTeacher(LocalTeacher):
                         continue
                     cid = coach.decide(persona=persona, step=step, feeling=r.feeling,
                                        state=r.state, budget_used=r.budget_used,
-                                       last_intervention=r.last_iv)
+                                       last_intervention=r.last_iv, hesitation=r.hesitation)
                     if cid and cid != NONE_ID:
                         r.pending_text = persona_facing(cid)
                         r.pending_id = cid
@@ -177,6 +178,10 @@ class BatchedLocalTeacher(LocalTeacher):
                         r.selected_tariff = str(e["target"]); break
         if isinstance(out.get("feeling"), str):
             r.feeling = out["feeling"]
+        try:
+            r.hesitation = float(out.get("hesitation")) if out.get("hesitation") is not None else r.hesitation
+        except (TypeError, ValueError):
+            pass
         if r.shown_id and isinstance(out.get("intervention_assessment"), dict):
             r.coach_log.append({"step": step.value, "shown": r.shown_id,
                                 "assessment": out["intervention_assessment"]})

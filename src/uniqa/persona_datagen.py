@@ -257,8 +257,10 @@ def params_block(persona: str) -> str:
 
 # In-scope online flow we orchestrate step by step (S5 add-on is out of scope; PURCHASE
 # is the terminal success after S6).
+# S1–S2 = persona DETECTION; S3–S6 = INTERVENTION area. S5 (add-on) re-included: it's a real
+# funnel step (24% conditional drop in UNIQA data) + a coach intervention surface.
 _INSCOPE_FLOW = [Step.COVERAGE_TYPE, Step.INSURED, Step.PERSONAL_INFO,
-                 Step.TARIFF_SELECT, Step.PERSONAL_DATA]
+                 Step.TARIFF_SELECT, Step.ADDON_SELECT, Step.PERSONAL_DATA]
 
 
 def _real_prices_block(step: Step, disposition: dict | None) -> dict:
@@ -348,12 +350,19 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
                      "— who you are arriving as, what triggered this visit, what you expect.")
     rules.append("If a price appears (S4 select, or the S6 final price), voice EXPECTATION "
                  "vs REALITY in the thought, then decide.")
+    rules.append("On a BIG/long form (high `ux_complexity_here`, e.g. S3 personal info or the S6 "
+                 "personal+health questionnaire): set `hesitation` HIGH and DON'T fill it instantly — "
+                 "dwell/hover/idle/re-read first (the moment a coach should pre-emptively explain WHY "
+                 "the form is needed). Only then start, or leave if effort outweighs reward.")
     if include_state:
         out_schema["state"] = {"attention": "0..1", "satisfaction": "0..1",
                                "effort_left": "0..1", "grasp": "0..1 (how much you actually understood this screen)",
                                "effort_vs_reward": "0..1 (1 = feels worth it, 0 = lots of work for little)"}
         out_schema["feeling"] = ("engaged | distracted | cant_grasp | too_much_effort | "
                                  "dissatisfied | goal_achieved | coverage_mismatch | unanswered_question")
+        out_schema["hesitation"] = ("0..1 — how much you are hesitating / NOT motivated to continue "
+                                    "right now (a big/long form, a price you must commit to, or doubt "
+                                    "raises it; this is the signal a coach would detect BEFORE you act)")
         if first:
             out_schema["intent"] = "<what info/outcome you came here to reach>"
         if lean:

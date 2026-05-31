@@ -28,22 +28,25 @@ from uniqa.persona_datagen import (
 
 PERSONAS = ["judith", "franz", "peter"]
 # in-scope per-step flow (S5/add-on excluded). probe focuses on the price walls S4 + S6.
-FLOW = [Step.COVERAGE_TYPE, Step.INSURED, Step.PERSONAL_INFO, Step.TARIFF_SELECT, Step.PERSONAL_DATA]
-PROBE_STEPS = [Step.TARIFF_SELECT, Step.PERSONAL_DATA]
+FLOW = [Step.COVERAGE_TYPE, Step.INSURED, Step.PERSONAL_INFO, Step.TARIFF_SELECT,
+        Step.ADDON_SELECT, Step.PERSONAL_DATA]
+PROBE_STEPS = [Step.TARIFF_SELECT, Step.ADDON_SELECT, Step.PERSONAL_DATA]
 
 _STEP_BRIEF = {
     Step.COVERAGE_TYPE:  [],
     Step.INSURED:        ["S1_COVERAGE_TYPE: doctor_visits"],
     Step.PERSONAL_INFO:  ["S1_COVERAGE_TYPE: doctor_visits", "S2_INSURED_PERSONS: myself"],
     Step.TARIFF_SELECT:  ["S1_COVERAGE_TYPE: doctor_visits", "S2_INSURED_PERSONS: myself", "S3_PERSONAL_INFO: dob, sv"],
-    Step.PERSONAL_DATA:  ["S1_COVERAGE_TYPE: doctor_visits", "S2_INSURED_PERSONS: myself",
+    Step.ADDON_SELECT:   ["S1_COVERAGE_TYPE: doctor_visits", "S2_INSURED_PERSONS: myself",
                           "S3_PERSONAL_INFO: dob, sv", "S4_TARIFF_SELECT: optimal"],
+    Step.PERSONAL_DATA:  ["S1_COVERAGE_TYPE: doctor_visits", "S2_INSURED_PERSONS: myself",
+                          "S3_PERSONAL_INFO: dob, sv", "S4_TARIFF_SELECT: optimal", "S5_ADDON_SELECT: skipped"],
 }
 
 # journey wear: later steps trend lower on attention/effort. "mood" buckets give coverage of
 # the leave-prone region without going off-manifold (we don't sample axes independently uniform).
 _STEP_WEAR = {Step.COVERAGE_TYPE: 0.0, Step.INSURED: 0.05, Step.PERSONAL_INFO: 0.12,
-              Step.TARIFF_SELECT: 0.18, Step.PERSONAL_DATA: 0.30}
+              Step.TARIFF_SELECT: 0.18, Step.ADDON_SELECT: 0.24, Step.PERSONAL_DATA: 0.30}
 
 
 def sample_running_state(step: Step, rng: random.Random) -> dict:
@@ -72,7 +75,7 @@ def sample_running_state(step: Step, rng: random.Random) -> dict:
 def sample_context(persona: str, step: Step, rng: random.Random) -> dict:
     disp = _sample_disposition(persona, rng)
     state = sample_running_state(step, rng)
-    tariff = rng.choice(["start", "optimal"]) if step is Step.PERSONAL_DATA else None
+    tariff = rng.choice(["start", "optimal"]) if step in (Step.ADDON_SELECT, Step.PERSONAL_DATA) else None
     intent = disp.get("visit_goal")
     return {"persona": persona, "step": step, "disposition": disp,
             "state": {k: v for k, v in state.items() if not k.startswith("_")},

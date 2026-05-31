@@ -37,12 +37,18 @@ from uniqa.persona_datagen import (
     LLMTeacher, OfflineTeacher, default_teacher, generate_feed,
 )
 
-# in-scope bounce steps (S5 add-on is out of scope per scope.py → excluded)
-BOUNCE_STEPS = [Step.PERSONAL_INFO, Step.TARIFF_SELECT, Step.PERSONAL_DATA]
+# Intervention/bounce steps: S3–S6. S5 (add-on) RE-INCLUDED — it's a real funnel step (24%
+# conditional drop in UNIQA data) and a coach surface. (S1–S2 = persona detection, ~no churn.)
+BOUNCE_STEPS = [Step.PERSONAL_INFO, Step.TARIFF_SELECT, Step.ADDON_SELECT, Step.PERSONAL_DATA]
 PERSONAS = ("judith", "franz", "peter")
 
+# ── PRIMARY anchors: UNIQA GROUND TRUTH (funnel analysis 10.12.25–01.02.26; slide 1000→333→
+# 253→56). Conditional drop at the critical steps + overall conversion. This is what we grade.
+UNIQA_AGG = {Step.TARIFF_SELECT: 0.667, Step.ADDON_SELECT: 0.240, Step.PERSONAL_DATA: 0.779}
+UNIQA_CONV = 0.056
 # pass tolerances (loose — small-N research loop, not production gating)
-EPS_GATE = 0.12       # mean abs per-cell bounce diff vs ABANDON_PROBS
+EPS_GATE = 0.12       # mean abs per-cell bounce diff (diagnostic, vs OUR per-persona splits)
+AGG_TOL  = 0.07       # |aggregate conditional churn - UNIQA| per step  (PRIMARY gate)
 CONV_TOL = 0.06       # |observed - implied| conversion rate per persona
 
 
@@ -136,6 +142,25 @@ def validate(by_persona: dict) -> dict:
         obs_overall += PERSONA_WEIGHTS[persona] * st["conv_rate"]
     eps = round(sum(cells) / len(cells), 4) if cells else None
     tgt_overall = round(sum(PERSONA_WEIGHTS[p] * implied_conv_target(p) for p in present), 4)
+
+    # ===== PRIMARY: survival-weighted POPULATION aggregate vs UNIQA ground truth =====
+    flow = [Step.COVERAGE_TYPE, Step.INSURED, Step.PERSONAL_INFO,
+            Step.TARIFF_SELECT, Step.ADDON_SELECT, Step.PERSONAL_DATA]
+    share = {p: PERSONA_WEIGHTS[p] for p in present}
+    agg = {}
+    for st in flow:
+        reach = sum(share.values()) or 1.0
+        cb = {p: report["personas"][p]["cond_bounce"].get(st.value, 0.0) for p in present}
+        a = sum(share[p] * cb[p] for p in present) / reach
+        if st in UNIQA_AGG:
+            agg[st.value] = {"observed": round(a, 3), "uniqa": UNIQA_AGG[st],
+                             "abs_diff": round(abs(a - UNIQA_AGG[st]), 3)}
+        share = {p: share[p] * (1 - cb[p]) for p in present}
+    conv_pop = round(sum(share.values()), 4)
+    agg_pass = all(v["abs_diff"] <= AGG_TOL for v in agg.values()) and len(present) == len(PERSONAS)
+    report["aggregate"] = {"per_step_vs_uniqa": agg, "in_scope_conversion": conv_pop,
+                           "uniqa_overall_conversion": UNIQA_CONV, "agg_pass": agg_pass}
+
     report["overall"] = {
         "epsilon_mean_abs_bounce": eps,
         "obs_conv_weighted": round(obs_overall, 4),
@@ -145,9 +170,11 @@ def validate(by_persona: dict) -> dict:
         "eps_pass": (eps is not None and eps <= EPS_GATE),
         "conv_pass": all(report["personas"][p]["conv_abs_diff"] <= CONV_TOL for p in present),
     }
+    # PRIMARY pass = aggregate matches UNIQA ground truth + every persona converts.
+    # (eps vs OUR per-persona splits is diagnostic only — not the gate.)
+    report["overall"]["agg_pass"] = agg_pass
     report["overall"]["PASS"] = bool(
-        report["overall"]["eps_pass"] and report["overall"]["conv_pass"]
-        and report["overall"]["all_personas_convert"] and len(present) == len(PERSONAS))
+        agg_pass and report["overall"]["all_personas_convert"] and len(present) == len(PERSONAS))
     return report
 
 

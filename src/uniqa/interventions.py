@@ -96,6 +96,11 @@ CATALOG: dict[str, Intervention] = {i.id: i for i in [
     Intervention("form_helper", Category.ENGAGE, "Inline form help",
         "A contextual hint that de-frictions the current field (e.g. “your insurance number is top-right on your e-card”).",
         (_S3, _S6), ()),
+    Intervention("form_explainer", Category.ENGAGE, "Why this form (pre-emptive)",
+        "A pop-up that fires the MOMENT a long form appears (before the user starts): explains WHY "
+        "the details are needed, that it's only ~N quick fields / ~1 minute, and that it's required "
+        "to compute the binding price — defusing the big-form scare so they begin instead of bailing.",
+        (_S3, _S6), ()),
     Intervention("preselect_optimal", Category.CONVERT_AID, "Sensible default selected",
         "Pre-selects the online-completable Optimal tariff (still changeable) so the user can proceed without deciding from scratch.",
         (_S4,), ("franz",), spends_budget=False),

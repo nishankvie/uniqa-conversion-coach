@@ -49,12 +49,18 @@ class ReactiveCoach:
         self.budget = budget
 
     def decide(self, *, persona: str, step: Step, feeling: str | None,
-               state: dict, budget_used: int, last_intervention: str | None) -> str:
+               state: dict, budget_used: int, last_intervention: str | None,
+               hesitation: float = 0.0) -> str:
         """Return an intervention id from the catalog, or NONE_ID for no-op."""
         if budget_used >= self.budget:
             return NONE_ID
 
         candidates: list[str] = []
+        # BIG-FORM pre-emptive nudge: the moment a long form (S3/S6) is hit with high hesitation,
+        # explain WHY the form is needed BEFORE the user bails (don't let the form scare them off).
+        if step in (Step.PERSONAL_INFO, Step.PERSONAL_DATA) and (
+                hesitation >= 0.5 or feeling == "too_much_effort"):
+            candidates.append("form_explainer")
         # 1) persona-specific priority for this step
         pr = _PERSONA_PRIORITY.get(persona, {}).get(step)
         if pr:

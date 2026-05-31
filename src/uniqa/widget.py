@@ -53,6 +53,8 @@ UX_COMPLEXITY: dict[Step, dict] = {
         "note": "date field (format-strict) + searchable SV dropdown (type-to-filter), inline validation errors"},
     Step.TARIFF_SELECT: {"grade": "high", "load": 0.9,
         "note": "4 tariff columns × 6 coverage rows, dense jargon (refractive eye surgery, Heilbehelfe), advisory-only badges, price comparison — high decision + comprehension load, no 'recommended for you'"},
+    Step.ADDON_SELECT: {"grade": "medium", "load": 0.55,
+        "note": "~6 optional add-on modules (toggles) each adding €/mo, with footnotes/cross-refs; raises the running price and adds another decision. Survivors of S4 are more determined, but it's another upsell + cost bump"},
     Step.PERSONAL_DATA: {"grade": "high", "load": 0.85,
         "note": "long personal + health questionnaire (many fields), then the final price reveal — high effort right before commitment"},
 }
@@ -129,6 +131,13 @@ STEP_ACTIONS: dict[Step, list[tuple[str, str | None]]] = {
         *[(ActionKind.OPEN_TOOLTIP, r) for r in TARIFF_ROWS],
         (ActionKind.NAV_NEXT, None), (ActionKind.NAV_BACK, None),
     ],
+    Step.ADDON_SELECT: [
+        *[(ActionKind.SELECT_CARD, a) for a in
+          ("fit_fuehlen", "eltern_werden", "mental_wachsen", "akut_versorgt", "baby_option", "vitalplan")],
+        (ActionKind.OPEN_TOOLTIP, "addon_info"),
+        (ActionKind.NAV_NEXT, None),    # 'Weiter' with no add-on = skip (most common)
+        (ActionKind.NAV_BACK, None),
+    ],
     Step.PERSONAL_DATA: [
         (ActionKind.TYPE_FIELD, f) for f in
         ("first_name", "last_name", "email", "sv_number", "height", "weight",
@@ -154,6 +163,8 @@ def legal_events(step: Step) -> set[str]:
         Step.TARIFF_SELECT: {EventType.SELECT.value, EventType.TARIFF_CLICK.value,
                              EventType.PREMIUM_CLICK.value, EventType.PRICE_REVEAL.value,
                              EventType.PRICE_HOVER.value, EventType.TOOLTIP_OPEN.value, EventType.TAP.value},
+        Step.ADDON_SELECT:  {EventType.SELECT.value, EventType.TAP.value, EventType.PRICE_REVEAL.value,
+                             EventType.PRICE_HOVER.value, EventType.TOOLTIP_OPEN.value},
         Step.PERSONAL_DATA: {EventType.KEYSTROKE.value, EventType.FIELD_EDIT.value,
                              EventType.VALIDATION_ERROR.value, EventType.CANCEL_HOVER.value,
                              EventType.SUBMIT.value, EventType.TAP.value,
@@ -195,11 +206,16 @@ def widget_response_model() -> dict:
                 "invalid/empty DOB or SV, then Weiter": "inline validation_error, stays on S3",
             },
             "S4_TARIFF_SELECT": {
-                "select start": f"reveals Start ≈€{start}/mo (price_reveal; the exact figure depends on your AGE) and advances to S6",
-                "select optimal": f"reveals Optimal ≈€{optimal}/mo (price_reveal; depends on your AGE) and advances to S6",
+                "select start": f"reveals Start ≈€{start}/mo (price_reveal; depends on your AGE) and advances to S5 (add-ons)",
+                "select optimal": f"reveals Optimal ≈€{optimal}/mo (price_reveal; depends on your AGE) and advances to S5 (add-ons)",
                 "click opt_plus or premium": "shows 'Beratung erforderlich' (advisory-only) — does NOT advance; must pick Start/Optimal to finish online",
                 "open (i) tooltip on a coverage row": "shows a one-line explanation; stays on S4",
                 "Weiter with no tariff selected": "validation_error",
+            },
+            "S5_ADDON_SELECT": {
+                "Weiter with no add-on selected": "advances to S6 (most common — skip the upsell)",
+                "toggle an add-on module": "adds its €/mo to the running premium (price_reveal); stays on S5 until Weiter",
+                "open (i) on an add-on": "one-line explanation; stays on S5",
             },
             "S6_PERSONAL_DATA": {
                 "fill name/email/SV + health answers, then submit": "shows the FINAL price/proposal: usually = the S4 provisional, but the health answers MAY add a ~6-10% risk loading so the final is higher. Also asks height/weight (friction if not recalled). The binding commitment + a possible higher final are the real bounce triggers here",
