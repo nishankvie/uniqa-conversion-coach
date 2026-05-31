@@ -22,18 +22,13 @@ dist/
 # ─── Stray binaries / event handouts ──────────────────────
 *.pdf
 
-# ─── Local-only notes (meta, other tracks, research, handouts) ───
-# All off-submission material now lives under _local/ (see _local/INDEX.md).
+# ─── Local-only / off-submission material ───
+# Everything not part of the UNIQA submission lives under _local/ (hidden, never tracked):
+# other hackathon tracks (_local/other-tracks/), meta notes, handouts, source decks.
 _local/
 
 # Project config — kept at repo root by convention (tools expect it), local-only.
 CLAUDE.md
-
-# Infineon / Karpathy track code — left at root; tracked docs reference this path.
-karpathy-experiment/
-
-# Stray / unrelated experiments
-tictactoe-extension/
 
 # Demo React app (Node)
 demo/node_modules/

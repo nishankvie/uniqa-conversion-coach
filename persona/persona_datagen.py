@@ -205,14 +205,15 @@ _COGNITIVE_MODEL = {
         "use up). A price above your picture, a budget strain, OR a worth-it calculation that fails "
         "pushes you toward leaving / wanting advice — otherwise it's fine."),
     "commitment_rule": (
-        "S6 gives personal + HEALTH data, then shows the FINAL price/proposal. Real things here: "
-        "(1) PRICE may JUMP — the `final_price` block shows provisional (S4) vs final; if your "
+        "S6 collects personal + HEALTH data (the long form); S7 then shows the BINDING FINAL "
+        "price/proposal and is where you actually buy or abandon. Real things here: "
+        "(1) PRICE may JUMP at S7 — the `final_price` block shows provisional (S4) vs final; if your "
         "health answers added a ~6-10% loading the final is HIGHER, which triggers the SAME price "
         "reaction as S4 (above `price_expectation`, straining `budget_pressure`, failing your value "
         "math → you bail, especially if you hate surprises). The rise is UNEXPLAINED, so a "
         "price-sensitive / uncertainty-averse person reacts with a DELAY first — emit idle/pause, "
         "re-read, and a confused thought ('why did it go up? which answer caused this?') — THEN "
-        "decide; do not bail instantly. (2) the form asks height/weight — if "
+        "decide; do not bail instantly. (2) the S6 form asks height/weight — if "
         "`session_instance.recalls_measurements` says you're unsure, that's friction (you guess, get "
         "annoyed, or stall). (3) the binding commitment itself: `commitment_anxiety` + "
         "`uncertainty_aversion` + drain (`effort_left`) + `advisor_lean`. UNIVERSAL TRUTH: finishing "
@@ -312,7 +313,8 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
                                disposition: dict | None = None,
                                selected_tariff: str | None = None,
                                coach_intervention: str | None = None,
-                               lean: bool = False) -> list[dict]:
+                               lean: bool = False,
+                               immutable_system: bool = False) -> list[dict]:
     """One STEP-BASED turn: emit this step's events, (optionally) track state vars, and
     make an explicit felt stay/leave decision. Returns (system, user) messages.
 
@@ -326,7 +328,10 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
         sys += params_block(persona)
     if include_state:
         sys += _CONSCIOUSNESS_PREAMBLE
-        if disposition:
+        # immutable_system: keep ONLY the persona-invariant scaffold in the system message
+        # (persona prose + dials + consciousness model). The per-SESSION disposition is MUTABLE,
+        # so it goes only into the user turn (session_instance) → a stable, cacheable system prefix.
+        if disposition and not immutable_system:
             sys += ("\n\nTODAY'S SESSION INSTANCE (who this individual is RIGHT NOW — this "
                     "OVERRIDES the segment profile whenever they conflict):\n"
                     + json.dumps(disposition, ensure_ascii=False))
@@ -348,8 +353,15 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
     if first:
         rules.append("This is your FIRST step: the first event's thought must set context "
                      "— who you are arriving as, what triggered this visit, what you expect.")
-    rules.append("If a price appears (S4 select, or the S6 final price), voice EXPECTATION "
+    rules.append("If a price appears (S4 select, or the S7 FINAL price), voice EXPECTATION "
                  "vs REALITY in the thought, then decide.")
+    if step is Step.PURCHASE:
+        rules.append("This is S7 — the CLOSING / conversion step. The binding FINAL price is in "
+                     "`final_price` and MAY be higher than the €-figure you saw at S4 (a health "
+                     "loading from your S6 answers). React to the DELTA: a jump you hate / that "
+                     "strains budget can make you abandon here; otherwise complete the purchase. "
+                     "'continue' HERE MEANS you finish the online purchase — emit a `convert` event; "
+                     "'leave' = abandon at the final price.")
     rules.append("On a BIG/long form (high `ux_complexity_here`, e.g. S3 personal info or the S6 "
                  "personal+health questionnaire): set `hesitation` HIGH and DON'T fill it instantly — "
                  "dwell/hover/idle/re-read first (the moment a coach should pre-emptively explain WHY "
@@ -402,7 +414,7 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
             "online, unexpected/contradicting info — and you decide to close it.",
             "  • 'goal_achieved' — INTENT-DRIVEN (not friction): if your `visit_goal` was to CHECK / "
             "COMPARE the price or to SEE THE FINAL PRICE/PROPOSAL (not buy today), then once you have "
-            "seen the number you came for (the S4 price, or the S6 final price/proposal) you leave "
+            "seen the number you came for (the S4 price, or the S7 final price/proposal) you leave "
             "CONTENT — you got what you came for. A calm, satisfied exit, not frustration.",
             "  • 'coverage_mismatch' — CONTENT: your `session_instance.coverage_need` is NOT covered "
             "(see `tariff_coverage_brief`): excluded entirely (dental, cosmetic, standalone "
@@ -427,7 +439,7 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
         "ux_complexity_here": ux_complexity(step),
         **({"tariff_coverage_brief": tariff_coverage_brief()} if include_state and step is Step.TARIFF_SELECT else {}),
         **(_real_prices_block(step, disposition) if include_state else {}),
-        **(_final_price_block(disposition, selected_tariff) if include_state and step is Step.PERSONAL_DATA else {}),
+        **(_final_price_block(disposition, selected_tariff) if include_state and step is Step.PURCHASE else {}),
         # lean keeps only the leave-DRIVING rules (price reaction + S6 commitment/price-jump +
         # decision); drops state_update_rules (redundant w/ dials) + coverage_reaction_rule
         # (covered by compressed rules). A/B-verified to preserve S4/S6 leave-rates.
@@ -502,7 +514,7 @@ def build_session_prompt(persona: str, include_quant: bool = False,
             "On the tariff step, select_tariff reveals a price (emit price_reveal); clicking opt_plus/premium is a premium_click (advisory-only).",
             "Timestamps matter: small gaps = reactive/engaged, large idle/session_gap = distracted. Pace the session like THIS persona really would.",
             "Respect widget_response_model: each action has the stated effect. Bei Arztbesuchen + Ich selbst + Start/Optimal is the only online-completable path; hospital, other-persons, Opt.Plus/Premium hand off to an advisor (= online abandon, not a conversion).",
-            "At EACH step make an explicit stay-or-leave decision — ESPECIALLY the moment the FIRST tariff price appears (S4) and at the final price (S6). Do NOT default to continuing just to see what happens next; many real sessions end at the first price screen.",
+            "At EACH step make an explicit stay-or-leave decision — ESPECIALLY the moment the FIRST tariff price appears (S4) and at the final price (S7). Do NOT default to continuing just to see what happens next; many real sessions end at the first price screen.",
             "THOUGHTS carry your reasoning. The FIRST event's thought must set context: who is arriving, what triggered this visit, and what you expect/want from the session.",
             "At every price_reveal, the thought must voice EXPECTATION vs REALITY (e.g. 'hoped for ~60, 68 is ok' / 'estimate said 68, now 71 — annoying').",
             "If you abandon, the thought may reveal the gap between your STATED and REAL reason (you might 'just think about it' while the real driver is something specific).",

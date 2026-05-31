@@ -30,8 +30,8 @@ from persona.persona_datagen import (
 PERSONAS = ["judith", "franz", "peter"]
 # in-scope per-step flow (S5/add-on excluded). probe focuses on the price walls S4 + S6.
 FLOW = [Step.COVERAGE_TYPE, Step.INSURED, Step.PERSONAL_INFO, Step.TARIFF_SELECT,
-        Step.ADDON_SELECT, Step.PERSONAL_DATA]
-PROBE_STEPS = [Step.TARIFF_SELECT, Step.ADDON_SELECT, Step.PERSONAL_DATA]
+        Step.ADDON_SELECT, Step.PERSONAL_DATA, Step.PURCHASE]
+PROBE_STEPS = [Step.TARIFF_SELECT, Step.ADDON_SELECT, Step.PERSONAL_DATA, Step.PURCHASE]
 
 _STEP_BRIEF = {
     Step.COVERAGE_TYPE:  [],
@@ -42,12 +42,16 @@ _STEP_BRIEF = {
                           "S3_PERSONAL_INFO: dob, sv", "S4_TARIFF_SELECT: optimal"],
     Step.PERSONAL_DATA:  ["S1_COVERAGE_TYPE: doctor_visits", "S2_INSURED_PERSONS: myself",
                           "S3_PERSONAL_INFO: dob, sv", "S4_TARIFF_SELECT: optimal", "S5_ADDON_SELECT: skipped"],
+    Step.PURCHASE:       ["S1_COVERAGE_TYPE: doctor_visits", "S2_INSURED_PERSONS: myself",
+                          "S3_PERSONAL_INFO: dob, sv", "S4_TARIFF_SELECT: optimal", "S5_ADDON_SELECT: skipped",
+                          "S6_PERSONAL_DATA: filled personal+health, submitted"],
 }
 
 # journey wear: later steps trend lower on attention/effort. "mood" buckets give coverage of
 # the leave-prone region without going off-manifold (we don't sample axes independently uniform).
 _STEP_WEAR = {Step.COVERAGE_TYPE: 0.0, Step.INSURED: 0.05, Step.PERSONAL_INFO: 0.12,
-              Step.TARIFF_SELECT: 0.18, Step.ADDON_SELECT: 0.24, Step.PERSONAL_DATA: 0.30}
+              Step.TARIFF_SELECT: 0.18, Step.ADDON_SELECT: 0.24, Step.PERSONAL_DATA: 0.30,
+              Step.PURCHASE: 0.35}
 
 
 def sample_running_state(step: Step, rng: random.Random) -> dict:
@@ -77,7 +81,7 @@ def sample_context(persona: str, step: Step, rng: random.Random) -> dict:
     disp = _sample_disposition(persona, rng)
     state = sample_running_state(step, rng)
     sctx = _sample_session_context(persona, rng)   # device + surroundings + traffic_source
-    tariff = rng.choice(["start", "optimal"]) if step in (Step.ADDON_SELECT, Step.PERSONAL_DATA) else None
+    tariff = rng.choice(["start", "optimal"]) if step in (Step.ADDON_SELECT, Step.PERSONAL_DATA, Step.PURCHASE) else None
     intent = disp.get("visit_goal")
     return {"persona": persona, "step": step, "disposition": disp,
             "state": {k: v for k, v in state.items() if not k.startswith("_")},
@@ -93,7 +97,7 @@ def build(ctx: dict) -> list[dict]:
         ctx["persona"], ctx["step"], ctx["brief"], ctx["state"],
         include_quant=False, include_params=True, include_state=True,
         disposition=ctx["disposition"], intent=ctx["intent"], session_context=ctx["session_context"],
-        selected_tariff=ctx["selected_tariff"], lean=_LEAN)
+        selected_tariff=ctx["selected_tariff"], lean=_LEAN, immutable_system=True)
 
 
 def classify(raw: str) -> str | None:

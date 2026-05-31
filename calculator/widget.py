@@ -56,7 +56,9 @@ UX_COMPLEXITY: dict[Step, dict] = {
     Step.ADDON_SELECT: {"grade": "medium", "load": 0.55,
         "note": "~6 optional add-on modules (toggles) each adding €/mo, with footnotes/cross-refs; raises the running price and adds another decision. Survivors of S4 are more determined, but it's another upsell + cost bump"},
     Step.PERSONAL_DATA: {"grade": "high", "load": 0.85,
-        "note": "long personal + health questionnaire (many fields), then the final price reveal — high effort right before commitment"},
+        "note": "long personal + health questionnaire (many fields) right before the binding step — high effort"},
+    Step.PURCHASE: {"grade": "medium", "load": 0.6,
+        "note": "S7 closing: the BINDING FINAL price is revealed (may be higher than the S4 estimate after a health loading) + payment method + consents + confirm. The second price wall and the actual conversion moment"},
 }
 
 
@@ -143,6 +145,14 @@ STEP_ACTIONS: dict[Step, list[tuple[str, str | None]]] = {
         ("first_name", "last_name", "email", "sv_number", "height", "weight",
          "sport", "doctor", "health_answers")
     ] + [(ActionKind.SUBMIT, None), (ActionKind.NAV_BACK, None)],
+    Step.PURCHASE: [
+        (ActionKind.OPEN_TOOLTIP, "price_breakdown"),    # why the final price (health loading)
+        (ActionKind.SELECT_CARD, "payment_sepa"),
+        (ActionKind.SELECT_CARD, "payment_card"),
+        (ActionKind.SELECT_CARD, "consent_terms"),
+        (ActionKind.SUBMIT, "confirm_purchase"),         # Abschließen → convert
+        (ActionKind.NAV_BACK, None),
+    ],
 }
 
 # Which event types a teacher/persona may legally emit on each step.
@@ -171,8 +181,11 @@ def legal_events(step: Step) -> set[str]:
                              EventType.PRICE_HOVER.value, EventType.TOOLTIP_OPEN.value},
         Step.PERSONAL_DATA: {EventType.KEYSTROKE.value, EventType.FIELD_EDIT.value,
                              EventType.VALIDATION_ERROR.value, EventType.CANCEL_HOVER.value,
-                             EventType.SUBMIT.value, EventType.TAP.value,
-                             EventType.PRICE_REVEAL.value},   # S7 final-price reveal
+                             EventType.SUBMIT.value, EventType.TAP.value},
+        Step.PURCHASE:      {EventType.PRICE_REVEAL.value, EventType.PRICE_HOVER.value,    # S7 final price
+                             EventType.CANCEL_HOVER.value, EventType.SELECT.value, EventType.TAP.value,
+                             EventType.KEYSTROKE.value, EventType.FIELD_EDIT.value,
+                             EventType.TOOLTIP_OPEN.value, EventType.SUBMIT.value},
     }
     return base | per_step.get(step, set())
 
@@ -222,8 +235,12 @@ def widget_response_model() -> dict:
                 "open (i) on an add-on": "one-line explanation; stays on S5",
             },
             "S6_PERSONAL_DATA": {
-                "fill name/email/SV + health answers, then submit": "shows the FINAL price/proposal: usually = the S4 provisional, but the health answers MAY add a ~6-10% risk loading so the final is higher. Also asks height/weight (friction if not recalled). The binding commitment + a possible higher final are the real bounce triggers here",
-                "Abschließen": "ONLINE PURCHASE → convert",
+                "fill name/email/SV + health answers, then submit": "advances to S7 (the final price / closing). Asks height/weight (friction if not recalled). The long form + the impending binding commitment are the bounce triggers here",
+            },
+            "S7_PURCHASE": {
+                "the final price is revealed": "the BINDING final price/proposal: usually = the S4 provisional, but the S6 health answers MAY add a ~6-10% risk loading so the final is HIGHER (the screen does NOT explain why). A higher-than-expected final is the SECOND price-wall bounce trigger",
+                "pick payment + accept consents + Abschließen": "ONLINE PURCHASE → convert",
+                "leave at the final price": "abandon (price shock / commitment) — not a conversion",
             },
             "any_step": {
                 "close tab / external link / leave": "abandon (not a conversion)",

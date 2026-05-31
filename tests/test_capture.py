@@ -25,7 +25,9 @@ def test_recorded_session_is_bot_legal():
     rec.price_reveal(Step.TARIFF_SELECT.value, "optimal", 68.14)
     rec.select(Step.TARIFF_SELECT.value, "optimal")
     rec.enter(Step.PERSONAL_DATA.value)
-    rec.price_reveal(Step.PERSONAL_DATA.value, "optimal_final", 68.14)  # S7 final price
+    rec.keystrokes(Step.PERSONAL_DATA.value, "health_answers", 12)   # S6 = the form
+    rec.enter(Step.PURCHASE.value)
+    rec.price_reveal(Step.PURCHASE.value, "optimal_final", 73.06)    # S7 = final price reveal
     rec.convert(Step.PURCHASE.value)
 
     # every event is in the bot's per-step legal vocabulary — no collapse needed
