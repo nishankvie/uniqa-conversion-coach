@@ -354,6 +354,12 @@ def build_step_decision_prompt(persona: str, step: Step, history_brief: list[str
                  "personal+health questionnaire): set `hesitation` HIGH and DON'T fill it instantly — "
                  "dwell/hover/idle/re-read first (the moment a coach should pre-emptively explain WHY "
                  "the form is needed). Only then start, or leave if effort outweighs reward.")
+    rules.append("Emit realistic MICRO-BEHAVIOURS that fit your state (these are the trace a coach "
+                 "reads): hover/slow_mouse when deliberating; tooltip_open/text_select/copy when a "
+                 "TERM confuses you (copy = about to look it up); tab_blur/external_nav to COMPARE "
+                 "then compare_return (value=sec away: short=you compared, long=you forgot the tab); "
+                 "scroll_up to re-read; repeated nav_back when confused; and an exit_intent (cursor to "
+                 "the screen edge) right BEFORE you abandon. Use only events legal on this step.")
     if include_state:
         out_schema["state"] = {"attention": "0..1", "satisfaction": "0..1",
                                "effort_left": "0..1", "grasp": "0..1 (how much you actually understood this screen)",
@@ -765,10 +771,22 @@ def _weighted(rng: random.Random, pairs: list[tuple[str, float]]) -> str:
     return rng.choices(opts, weights=w, k=1)[0]
 
 
+# Traffic source: ~80% of UNIQA calculator traffic is paid+organic search. Source correlates
+# with intent + persona (hypothesis from media/channel prefs): paid/comparison → motivated
+# Franz/Judith; display/social → lower-intent, more Peter; direct/portal → returning Judith.
+# This is an early DETECTION signal the coach sees before any click. See docs/SIGNALS_AND_DETECTION.md.
+_TRAFFIC_W = {
+    "judith": [("organic_search", .4), ("paid_search", .25), ("direct_or_portal", .25), ("display_or_social", .1)],
+    "franz":  [("paid_search", .4), ("price_comparison_referrer", .25), ("organic_search", .25), ("display_or_social", .1)],
+    "peter":  [("display_or_social", .4), ("paid_search", .3), ("organic_search", .2), ("direct_or_portal", .1)],
+}
+
+
 def _sample_session_context(persona: str, rng: random.Random) -> dict:
     device = _weighted(rng, _DEVICE_W.get(persona, [("desktop", 1.0)]))
     env = _weighted(rng, _ENV_W.get(persona, [("home", 1.0)]))
-    return {"device": device, "surroundings": env}
+    traffic = _weighted(rng, _TRAFFIC_W.get(persona, [("organic_search", 1.0)]))
+    return {"device": device, "surroundings": env, "traffic_source": traffic}
 
 
 # Per-session LATENT DISPOSITION (codex P1): this individual TODAY. Sampled uniformly per

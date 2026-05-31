@@ -63,6 +63,15 @@ class EventType(Enum):
     TAB_BLUR       = "tab_blur"          # switched away to another tab (attention left)
     TAB_FOCUS      = "tab_focus"         # re-activated this tab; value = seconds away
     CANCEL_HOVER   = "cancel_hover"
+    EXIT_INTENT    = "exit_intent"       # cursor darts to top/edge (toward close/URL bar) → leaving NOW
+    TEXT_SELECT    = "text_select"       # highlighted text — reading hard / selecting a jargon term
+    COPY           = "copy"              # copied text → about to google a term / leave to compare
+    EXTERNAL_NAV   = "external_nav"      # opened a new tab / left to compare (intentional)
+    COMPARE_RETURN = "compare_return"    # returned; value=sec away (short=compared, long=forgot)
+    SLOW_MOUSE     = "slow_mouse"        # slow wandering cursor over options → deliberation/uncertainty
+    RAGE_CLICK     = "rage_click"        # repeated clicks same target → frustration
+    SCROLL_UP      = "scroll_up"         # scrolled back up to re-read → confusion / didn't absorb
+    FIELD_CLEAR    = "field_clear"       # cleared a field after typing → doubt / abandoned input
     WIDGET_SHOWN   = "widget_shown"      # coach-originated, echoed back
     WIDGET_CTA     = "widget_cta"        # user clicked the widget CTA
     WIDGET_DISMISS = "widget_dismiss"

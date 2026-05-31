@@ -151,8 +151,12 @@ def legal_events(step: Step) -> set[str]:
             EventType.HOVER.value, EventType.MOUSE_MOVE.value, EventType.NAV_BACK.value,
             EventType.FIELD_FOCUS.value, EventType.FIELD_BLUR.value,  # focus/blur on any field
             EventType.SUBMIT.value,                           # 'Weiter' is legal on every step
-            EventType.SESSION_GAP.value,                      # returned after a pause
+            EventType.SESSION_GAP.value, EventType.SCROLL.value, EventType.SCROLL_UP.value,
             EventType.TAB_BLUR.value, EventType.TAB_FOCUS.value,  # tab switch away / re-activate
+            # rich behavioural repertoire — legal on ANY step (the coach reads these over time)
+            EventType.EXIT_INTENT.value, EventType.TEXT_SELECT.value, EventType.COPY.value,
+            EventType.EXTERNAL_NAV.value, EventType.COMPARE_RETURN.value, EventType.SLOW_MOUSE.value,
+            EventType.RAGE_CLICK.value,
             EventType.ABANDON.value, EventType.CONVERT.value}
     per_step = {
         Step.COVERAGE_TYPE: {EventType.SELECT.value, EventType.TAP.value},

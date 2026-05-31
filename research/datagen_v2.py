@@ -23,7 +23,8 @@ from pathlib import Path
 
 from uniqa.funnel import Step, PERSONA_WEIGHTS
 from uniqa.persona_datagen import (
-    LLMTeacher, _sample_disposition, _strip_fences, build_step_decision_prompt,
+    LLMTeacher, _sample_disposition, _sample_session_context, _strip_fences,
+    build_step_decision_prompt,
 )
 
 PERSONAS = ["judith", "franz", "peter"]
@@ -75,12 +76,13 @@ def sample_running_state(step: Step, rng: random.Random) -> dict:
 def sample_context(persona: str, step: Step, rng: random.Random) -> dict:
     disp = _sample_disposition(persona, rng)
     state = sample_running_state(step, rng)
+    sctx = _sample_session_context(persona, rng)   # device + surroundings + traffic_source
     tariff = rng.choice(["start", "optimal"]) if step in (Step.ADDON_SELECT, Step.PERSONAL_DATA) else None
     intent = disp.get("visit_goal")
     return {"persona": persona, "step": step, "disposition": disp,
             "state": {k: v for k, v in state.items() if not k.startswith("_")},
             "mood": state["_mood"], "brief": list(_STEP_BRIEF[step]),
-            "intent": intent, "selected_tariff": tariff}
+            "session_context": sctx, "intent": intent, "selected_tariff": tariff}
 
 
 _LEAN = True   # set by main(); lean trims cognitive_model + compresses feeling rules (~20%)
@@ -90,7 +92,7 @@ def build(ctx: dict) -> list[dict]:
     return build_step_decision_prompt(
         ctx["persona"], ctx["step"], ctx["brief"], ctx["state"],
         include_quant=False, include_params=True, include_state=True,
-        disposition=ctx["disposition"], intent=ctx["intent"],
+        disposition=ctx["disposition"], intent=ctx["intent"], session_context=ctx["session_context"],
         selected_tariff=ctx["selected_tariff"], lean=_LEAN)
 
 

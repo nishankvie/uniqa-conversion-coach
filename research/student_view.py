@@ -23,8 +23,8 @@ from pathlib import Path
 
 # dynamic keys to KEEP from the teacher's user dict (everything else is static → internalized)
 _KEEP = {"you_are_on", "ui_ascii", "action_space", "your_running_state", "history_brief",
-         "session_instance", "your_initial_intent", "output_schema", "coach_widget_shown",
-         "tariff_economics_for_your_age", "final_price", "tariff_coverage_brief"}
+         "session_instance", "session_context", "your_initial_intent", "output_schema",
+         "coach_widget_shown", "tariff_economics_for_your_age", "final_price", "tariff_coverage_brief"}
 # level 2 (aggressive) also internalizes legality/schema/ascii
 _DROP_L2 = {"action_space", "output_schema", "ui_ascii"}
 
