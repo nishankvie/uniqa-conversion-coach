@@ -63,6 +63,11 @@ CATALOG: dict[str, Intervention] = {i.id: i for i in [
     Intervention("health_explain", Category.INFORM, "Why the final price changed",
         "A short note explaining the final price moved after the health questions, why that happened, and that it's still fully online.",
         (_S6,), ()),
+    Intervention("value_justification", Category.PRICE, "Why it's worth it (final > estimate)",
+        "When the FINAL price exceeds the provisional estimate, a card that justifies the gap "
+        "(what the extra covers / why) and shows a comparable cheaper tariff option — the move for "
+        "a price-performance-driven user stalling at the final number. Still fully online.",
+        (_S6,), ("franz", "judith")),
 
     # ── inform / package nuance ───────────────────────────────────────────────
     Intervention("upgrade_explain", Category.INFORM, "Premium vs Optimal (online)",
@@ -93,6 +98,14 @@ CATALOG: dict[str, Intervention] = {i.id: i for i in [
     Intervention("quick_quiz", Category.ENGAGE, "60-second fit quiz",
         "An offer to take a short 3-question quiz that recommends the right tariff for them — turns an overwhelming choice into a guided one.",
         (_S1, _S4), ("peter", "judith")),
+    Intervention("addon_skip_ok", Category.REASSURE, "Add-ons are optional",
+        "Reassurance at the add-on step: these are optional, skipping keeps your price as shown, "
+        "and you can add any module later anytime — defuses the upsell+cost-bump scare.",
+        (Step.ADDON_SELECT,), (), spends_budget=False),
+    Intervention("form_simplify", Category.ENGAGE, "Simplify the form",
+        "On detected overwhelm, collapse the form to only the few REQUIRED fields (progressive "
+        "disclosure) so it feels doable instead of endless.",
+        (_S3, _S6), ("peter",)),
     Intervention("form_helper", Category.ENGAGE, "Inline form help",
         "A contextual hint that de-frictions the current field (e.g. “your insurance number is top-right on your e-card”).",
         (_S3, _S6), ()),

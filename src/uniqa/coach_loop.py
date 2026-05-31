@@ -19,8 +19,8 @@ from uniqa.interventions import CATALOG, NONE_ID, is_apt
 # feeling (persona's self-reported state) → ordered candidate interventions
 _FEELING_PLAYBOOK: dict[str, list[str]] = {
     "cant_grasp":          ["package_nuance", "coverage_explain", "quick_quiz"],
-    "too_much_effort":     ["form_helper", "quick_quiz", "preselect_optimal"],
-    "dissatisfied":        ["price_reframe", "pricing_explain", "upgrade_explain"],
+    "too_much_effort":     ["form_simplify", "form_helper", "quick_quiz", "preselect_optimal"],
+    "dissatisfied":        ["value_justification", "price_reframe", "pricing_explain", "upgrade_explain"],
     "unanswered_question": ["coverage_checker", "whatsapp_bot", "package_nuance"],
     "coverage_mismatch":   ["coverage_explain", "package_nuance", "coverage_checker"],
     "distracted":          ["save_progress", "email_capture"],
@@ -61,6 +61,9 @@ class ReactiveCoach:
         if step in (Step.PERSONAL_INFO, Step.PERSONAL_DATA) and (
                 hesitation >= 0.5 or feeling == "too_much_effort"):
             candidates.append("form_explainer")
+        # add-on step: defuse the optional-upsell cost bump
+        if step is Step.ADDON_SELECT:
+            candidates.append("addon_skip_ok")
         # 1) persona-specific priority for this step
         pr = _PERSONA_PRIORITY.get(persona, {}).get(step)
         if pr:
