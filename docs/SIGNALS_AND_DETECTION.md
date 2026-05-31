@@ -68,6 +68,19 @@ The policy reads windows + cumulative counters, not single events:
 
 ---
 
+## 2b. Cohort baseline & RELATIVE signals (anomaly detection, not thresholds)
+"Fast" is meaningless absolutely — only relative to peers. So we measure a **cohort baseline**
+(`src/uniqa/baseline.py`): per (step, metric) mean/std/p50/p90 over many sessions (cohort = e.g.
+this week × device), for dwell_sec, price_hover_n, field_focus_n, back_nav_n, cancel_hover_n,
+tooltip_n, keystrokes, validation_err_n, tab_away_n/sec, idle_n, exit_intent_n, etc. Then each live
+session is scored as **divergence (z-score)** from that baseline; the coach acts on **OUTLIERS**
+(`|z| ≥ ~2`), not fixed numbers:
+- `dwell_sec` z ≈ −2.3 on early steps → **much faster than peers** → decisive (Franz, H1/H6) or skimming.
+- `back_nav_n` / `cancel_hover_n` / `validation_err_n` z high → anomalously stuck → friction.
+- `tab_away_sec` z high → left far longer than peers → forgot (vs short = compared).
+`baseline.build_baseline(logs)` + `baseline.divergence(session, baseline)` produce the z-scores fed
+to the coach as `relative_signals`. Baselines are cohort/time-window-scoped → recompute per window.
+
 ## 3. Churn signals → intervention opportunities (the trigger table)
 | Signal (derived) | Reads as | Coach move |
 |---|---|---|

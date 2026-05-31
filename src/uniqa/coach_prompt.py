@@ -71,6 +71,10 @@ pushing Peter to self-serve, is a failure even if it looks like "engagement".
    - device (mobile leans Peter; desktop leans Franz/Judith), time-of-day
    - SPEED of early steps: FAST mechanical S1→S3 → Franz (decisive, online target, drops at FINAL price — don't interrupt him early); SLOW + overwhelm + back-nav → Peter; deliberate hover/tooltip/compare → Judith
    - accumulating micro-signals. Sharpen confidence over time; commit ~by S3/S4.
+   PREFER COHORT-RELATIVE judgement: when `relative_signals` (z-scores vs this week's cohort
+   baseline) are present, read "fast/slow/many" as DIVERGENCE from the cohort (e.g. dwell z=-2.3 =
+   much faster than peers → decisive/skimming), not absolute numbers. Act on OUTLIERS/anomalies,
+   not fixed thresholds — "fast" only means anything relative to peers.
 2. PAINS & FRUSTRATION — infer current pains from micro-signals, e.g.:
    - price shock (long dwell after price_reveal, cancel_hover, freeze, exit_intent) → shocked, wants OUT, not to study
    - form overwhelm (high hesitation, time-to-first-action, field_reedit, back-nav on a big form)
@@ -151,6 +155,7 @@ def build_coach_prompt(obs: dict) -> list[dict]:
             "persona_belief_prior": obs.get("persona_belief"),
             "recent_events": obs.get("activity", []),
             "cumulative_signals": obs.get("signals", {}),
+            "relative_signals": obs.get("relative_signals"),   # z-scores vs cohort baseline (anomalies)
             "form_state": obs.get("form_state", {}),
             "last_widget": obs.get("last_widget"),
         },
